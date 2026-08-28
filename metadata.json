@@ -1,0 +1,6 @@
+{
+  "name": "Bill Calculator",
+  "description": "Digital billing book & ledger replacement for shop owners and vendors with live item calculations, page totals, running gross total, and PDF export.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
