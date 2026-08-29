@@ -28,6 +28,11 @@ jobs:
 
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
+        with:
+          api-level: 36
+          target: default
+          arch: x86_64
+          cache: true
 
       - name: Make gradlew executable
         run: chmod +x ./gradlew
@@ -36,14 +41,23 @@ jobs:
         run: cp .env.example .env
 
       - name: Build debug APK
-        run: ./gradlew assembleDebug
+        run: ./gradlew assembleDebug --stacktrace
 
       - name: Upload debug APK
         uses: actions/upload-artifact@v4
+        if: success()
         with:
           name: app-debug
           path: app/build/outputs/apk/debug/*.apk
           retention-days: 30
+
+      - name: Upload build logs on failure
+        uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: build-logs
+          path: app/build/outputs/
+          retention-days: 7
 
   test:
     runs-on: ubuntu-latest
@@ -66,7 +80,7 @@ jobs:
         run: cp .env.example .env
 
       - name: Run unit tests
-        run: ./gradlew test
+        run: ./gradlew test --stacktrace
 
       - name: Upload test reports
         uses: actions/upload-artifact@v4
