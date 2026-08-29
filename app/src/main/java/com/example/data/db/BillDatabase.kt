@@ -11,7 +11,7 @@ import com.example.data.model.BillRowEntity
 
 @Database(
   entities = [BillEntity::class, BillPageEntity::class, BillRowEntity::class],
-  version = 1,
+  version = 3,
   exportSchema = false
 )
 abstract class BillDatabase : RoomDatabase() {

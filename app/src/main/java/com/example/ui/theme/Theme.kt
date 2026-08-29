@@ -16,6 +16,9 @@ data class LedgerExtendedColors(
   val ledgerPaper: Color,
   val ledgerPaperSurface: Color,
   val ledgerPaperShaded: Color,
+  val headerSurface: Color,
+  val headerContent: Color,
+  val headerContentMuted: Color,
   val inkNavy: Color,
   val inkNavyLight: Color,
   val ruledLine: Color,
@@ -27,8 +30,13 @@ data class LedgerExtendedColors(
   val stampAmberLight: Color,
   val charcoal: Color,
   val mutedCharcoal: Color,
+  val placeholderColor: Color,
   val softRed: Color,
-  val softRedLight: Color
+  val softRedLight: Color,
+  val softRedBg: Color,
+  val heroCardContainer: Color,
+  val heroCardContent: Color,
+  val tableHeaderBg: Color
 )
 
 val LocalLedgerColors = staticCompositionLocalOf {
@@ -36,6 +44,9 @@ val LocalLedgerColors = staticCompositionLocalOf {
     ledgerPaper = LedgerPaper,
     ledgerPaperSurface = LedgerPaperSurface,
     ledgerPaperShaded = LedgerPaperShaded,
+    headerSurface = HeaderSurfaceLight,
+    headerContent = HeaderContentLight,
+    headerContentMuted = HeaderContentMutedLight,
     inkNavy = InkNavy,
     inkNavyLight = InkNavyLight,
     ruledLine = RuledLine,
@@ -47,8 +58,13 @@ val LocalLedgerColors = staticCompositionLocalOf {
     stampAmberLight = StampAmberLight,
     charcoal = Charcoal,
     mutedCharcoal = MutedCharcoal,
+    placeholderColor = PlaceholderLight,
     softRed = SoftRed,
-    softRedLight = SoftRedLight
+    softRedLight = SoftRedLight,
+    softRedBg = SoftRedBg,
+    heroCardContainer = HeroCardContainerLight,
+    heroCardContent = Color.White,
+    tableHeaderBg = TableHeaderContainerLight
   )
 }
 
@@ -102,6 +118,9 @@ val DarkExtendedColors = LedgerExtendedColors(
   ledgerPaper = LedgerPaperDark,
   ledgerPaperSurface = LedgerPaperSurfaceDark,
   ledgerPaperShaded = LedgerPaperShadedDark,
+  headerSurface = HeaderSurfaceDark,
+  headerContent = HeaderContentDark,
+  headerContentMuted = HeaderContentMutedDark,
   inkNavy = InkNavyDark,
   inkNavyLight = InkNavyLightDark,
   ruledLine = RuledLineDark,
@@ -113,14 +132,22 @@ val DarkExtendedColors = LedgerExtendedColors(
   stampAmberLight = StampAmberLightDark,
   charcoal = CharcoalDark,
   mutedCharcoal = MutedCharcoalDark,
+  placeholderColor = PlaceholderDark,
   softRed = SoftRedDark,
-  softRedLight = Color(0xFF3B1515)
+  softRedLight = SoftRedLightDark,
+  softRedBg = SoftRedBgDark,
+  heroCardContainer = HeroCardContainerDark,
+  heroCardContent = Color.White,
+  tableHeaderBg = TableHeaderContainerDark
 )
 
 val LightExtendedColors = LedgerExtendedColors(
   ledgerPaper = LedgerPaper,
   ledgerPaperSurface = LedgerPaperSurface,
   ledgerPaperShaded = LedgerPaperShaded,
+  headerSurface = HeaderSurfaceLight,
+  headerContent = HeaderContentLight,
+  headerContentMuted = HeaderContentMutedLight,
   inkNavy = InkNavy,
   inkNavyLight = InkNavyLight,
   ruledLine = RuledLine,
@@ -132,8 +159,13 @@ val LightExtendedColors = LedgerExtendedColors(
   stampAmberLight = StampAmberLight,
   charcoal = Charcoal,
   mutedCharcoal = MutedCharcoal,
+  placeholderColor = PlaceholderLight,
   softRed = SoftRed,
-  softRedLight = SoftRedLight
+  softRedLight = SoftRedLight,
+  softRedBg = SoftRedBg,
+  heroCardContainer = HeroCardContainerLight,
+  heroCardContent = Color.White,
+  tableHeaderBg = TableHeaderContainerLight
 )
 
 @Composable

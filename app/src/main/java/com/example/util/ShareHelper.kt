@@ -28,12 +28,12 @@ object ShareHelper {
       val shareIntent = Intent(Intent.ACTION_SEND).apply {
         type = "application/pdf"
         putExtra(Intent.EXTRA_STREAM, uri)
-        putExtra(Intent.EXTRA_SUBJECT, "Invoice $billNumber")
-        putExtra(Intent.EXTRA_TEXT, "Here is your invoice #$billNumber from Bill Calculator.")
+        putExtra(Intent.EXTRA_SUBJECT, "Bill Verification Report $billNumber")
+        putExtra(Intent.EXTRA_TEXT, "Here is the bill calculation & verification report for #$billNumber generated via Bill Verifier.")
         addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
       }
 
-      context.startActivity(Intent.createChooser(shareIntent, "Share Invoice PDF"))
+      context.startActivity(Intent.createChooser(shareIntent, "Share Verification Report PDF"))
     } catch (e: Exception) {
       Toast.makeText(context, "Failed to share PDF: ${e.localizedMessage}", Toast.LENGTH_LONG).show()
     }
@@ -46,9 +46,11 @@ object ShareHelper {
     currencySymbol: String = "₹"
   ) {
     val builder = StringBuilder()
-    builder.append("🧾 *BILL INVOICE: ${bill.invoiceNumber}*\n")
-    if (bill.customerName.isNotBlank()) {
-      builder.append("👤 *Customer:* ${bill.customerName}")
+    builder.append("🔍 *BILL VERIFICATION & AUDIT REPORT*\n")
+    builder.append("🧾 *Bill / Parchi #:* ${bill.invoiceNumber}\n")
+    val sellerName = if (bill.sellerName.isNotBlank()) bill.sellerName else if (bill.customerName.isNotBlank()) bill.customerName else ""
+    if (sellerName.isNotBlank()) {
+      builder.append("🏬 *Seller / Shop:* $sellerName")
       if (bill.phone.isNotBlank()) builder.append(" | 📞 ${bill.phone}")
       builder.append("\n")
     }
@@ -63,19 +65,44 @@ object ShareHelper {
           val name = if (row.productName.isNotBlank()) row.productName else "Item ${idx + 1}"
           val qty = Formatters.formatQuantity(row.quantity)
           val rate = Formatters.formatMoneyValue(row.rate)
-          val total = Formatters.formatCurrency(row.total, currencySymbol)
-          builder.append("• $name ($qty × $rate) = $total\n")
+          val prefix = if (row.isReturn) "[RETURN -] " else ""
+          val total = if (row.isReturn) {
+            "-${Formatters.formatCurrency(kotlin.math.abs(row.total), currencySymbol)}"
+          } else {
+            Formatters.formatCurrency(row.total, currencySymbol)
+          }
+          builder.append("• $prefix$name ($qty × $rate) = $total\n")
         }
         builder.append("  *Page ${page.pageNumber} Subtotal:* ${Formatters.formatCurrency(page.pageTotal, currencySymbol)}\n\n")
       }
     }
 
     builder.append("━━━━━━━━━━━━━━━━━━━━\n")
-    builder.append("💰 *GROSS TOTAL: ${Formatters.formatCurrency(bill.grossTotal, currencySymbol)}*\n")
+    builder.append("🧮 *Gross Items Total: ${Formatters.formatCurrency(bill.grossTotal, currencySymbol)}*\n")
+    if (bill.deductionAmount > 0.0) {
+      builder.append("➖ *Advance / Deduction: -${Formatters.formatCurrency(bill.deductionAmount, currencySymbol)}*\n")
+    }
+    val netTotal = (bill.grossTotal - bill.deductionAmount).coerceAtLeast(0.0)
+    builder.append("💰 *NET CALCULATED PAYABLE: ${Formatters.formatCurrency(netTotal, currencySymbol)}*\n")
+
+    if (bill.claimedTotal > 0.0) {
+      builder.append("📝 *Seller's Paper Bill Total:* ${Formatters.formatCurrency(bill.claimedTotal, currencySymbol)}\n")
+      val discrepancy = kotlin.math.abs(bill.claimedTotal - netTotal)
+      val isExactMatch = discrepancy < 0.01
+      val isOvercharged = bill.claimedTotal > netTotal + 0.01
+
+      if (isExactMatch) {
+        builder.append("✅ *Audit Status:* EXACT MATCH (No Error)\n")
+      } else if (isOvercharged) {
+        builder.append("⚠️ *Audit Status:* OVERCHARGED by ${Formatters.formatCurrency(discrepancy, currencySymbol)}\n")
+      } else {
+        builder.append("ℹ️ *Audit Status:* Discrepancy of ${Formatters.formatCurrency(discrepancy, currencySymbol)}\n")
+      }
+    }
     if (bill.note.isNotBlank()) {
       builder.append("📝 *Note:* ${bill.note}\n")
     }
-    builder.append("\n_Thank you for your business!_")
+    builder.append("\n_Verified accurately with Bill Verifier_")
 
     val textToShare = builder.toString()
     val sendIntent = Intent(Intent.ACTION_SEND).apply {
@@ -148,7 +175,7 @@ object ShareHelper {
         Toast.makeText(context, "Printing not supported on this device", Toast.LENGTH_SHORT).show()
       }
     } catch (e: Exception) {
-      Toast.makeText(context, "Print error: ${e.localizedMessage}", Toast.LENGTH_LONG).show()
+      Toast.makeText(context, "Print error: ${e.localizedMessage}", Toast.LENGTH_SHORT).show()
     }
   }
 }

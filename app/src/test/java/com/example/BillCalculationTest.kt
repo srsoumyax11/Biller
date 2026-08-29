@@ -35,4 +35,16 @@ class BillCalculationTest {
     val formatted = Formatters.formatCurrency(1250.75, "₹")
     assertEquals("₹ 1,250.75", formatted)
   }
+
+  @Test
+  fun `fast calculation mode without product name calculates total accurately`() {
+    val row = UiRow(
+      productName = "",
+      quantityStr = "12",
+      rateStr = "15.50"
+    )
+    assertEquals(186.0, row.total, 0.001)
+    assertEquals(true, row.hasCalculation)
+    assertEquals(true, row.isRowFilled)
+  }
 }

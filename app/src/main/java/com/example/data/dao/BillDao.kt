@@ -19,9 +19,11 @@ interface BillDao {
 
   @Query("""
     SELECT * FROM bills 
-    WHERE customerName LIKE '%' || :query || '%' 
+    WHERE sellerName LIKE '%' || :query || '%'
+       OR customerName LIKE '%' || :query || '%' 
        OR invoiceNumber LIKE '%' || :query || '%' 
        OR phone LIKE '%' || :query || '%'
+       OR note LIKE '%' || :query || '%'
     ORDER BY dateMillis DESC, id DESC
   """)
   fun searchBillsFlow(query: String): Flow<List<BillEntity>>

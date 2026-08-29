@@ -24,14 +24,17 @@ data class UiRow(
   val id: String = UUID.randomUUID().toString(),
   val productName: String = "",
   val quantityStr: String = "",
-  val rateStr: String = ""
+  val rateStr: String = "",
+  val isReturn: Boolean = false
 ) {
-  val quantity: Double? get() = Formatters.parseDecimal(quantityStr)
-  val rate: Double? get() = Formatters.parseDecimal(rateStr)
+  val quantity: Double? get() = Formatters.parseDecimal(quantityStr)?.let { kotlin.math.abs(it) }
+  val rate: Double? get() = Formatters.parseDecimal(rateStr)?.let { kotlin.math.abs(it) }
   val total: Double get() {
     val q = quantity
     val r = rate
-    return if (q != null && r != null) q * r else 0.0
+    if (q == null || r == null) return 0.0
+    val amount = q * r
+    return if (isReturn) -amount else amount
   }
   val hasCalculation: Boolean get() = quantity != null && rate != null
   val isRowFilled: Boolean get() = productName.isNotBlank() || quantityStr.isNotBlank() || rateStr.isNotBlank()
@@ -48,17 +51,35 @@ data class UiPage(
 
 data class ActiveBillState(
   val billId: Long = 0L,
+  val sellerName: String = "",
   val customerName: String = "",
   val phone: String = "",
   val dateMillis: Long = System.currentTimeMillis(),
   val invoiceNumber: String = Formatters.generateInvoiceNumber(),
   val note: String = "",
+  val deductionAmountStr: String = "",
+  val claimedTotalStr: String = "",
   val pages: List<UiPage> = listOf(UiPage(pageNumber = 1)),
   val activePageIndex: Int = 0,
   val currencySymbol: String = "₹",
+  val showProductName: Boolean = true,
   val isSavedToDb: Boolean = false
 ) {
   val grossTotal: Double get() = pages.sumOf { it.pageTotal }
+  val deductionAmount: Double get() = Formatters.parseDecimal(deductionAmountStr) ?: 0.0
+  val hasDeduction: Boolean get() = deductionAmount > 0.0
+  val netTotal: Double get() = (grossTotal - deductionAmount).coerceAtLeast(0.0)
+  val effectiveTotal: Double get() = if (hasDeduction) netTotal else grossTotal
+  val returnsTotal: Double get() = pages.sumOf { p -> p.rows.filter { it.isReturn && it.hasCalculation }.sumOf { kotlin.math.abs(it.total) } }
+  val additionsTotal: Double get() = pages.sumOf { p -> p.rows.filter { !it.isReturn && it.hasCalculation }.sumOf { it.total } }
+  val hasReturns: Boolean get() = returnsTotal > 0.0
+  val claimedTotal: Double get() = Formatters.parseDecimal(claimedTotalStr) ?: 0.0
+  val hasClaimedTotal: Boolean get() = claimedTotal > 0.0
+  val discrepancy: Double get() = claimedTotal - effectiveTotal
+  val isExactMatch: Boolean get() = hasClaimedTotal && kotlin.math.abs(discrepancy) < 0.01
+  val isOvercharged: Boolean get() = hasClaimedTotal && discrepancy > 0.01
+  val isUndercharged: Boolean get() = hasClaimedTotal && discrepancy < -0.01
+  val displayName: String get() = sellerName.ifBlank { customerName.ifBlank { "Unassigned Seller" } }
   val activePage: UiPage get() = pages.getOrElse(activePageIndex) { pages.first() }
   val totalItemCount: Int get() = pages.sumOf { p -> p.rows.count { it.isRowFilled } }
 }
@@ -123,19 +144,53 @@ class BillViewModel(application: Application) : AndroidViewModel(application) {
     _snackbarMessage.value = null
   }
 
-  fun startNewBill(customerName: String = "", phone: String = "", note: String = "") {
+  fun startNewBill(
+    sellerName: String = "",
+    customerName: String = "",
+    phone: String = "",
+    note: String = "",
+    claimedTotalStr: String = "",
+    deductionAmountStr: String = ""
+  ) {
     _activeBillState.value = ActiveBillState(
       billId = 0L,
+      sellerName = sellerName,
       customerName = customerName,
       phone = phone,
       dateMillis = System.currentTimeMillis(),
       invoiceNumber = Formatters.generateInvoiceNumber(),
       note = note,
+      deductionAmountStr = deductionAmountStr,
+      claimedTotalStr = claimedTotalStr,
       pages = listOf(UiPage(pageNumber = 1, rows = listOf(UiRow()))),
       activePageIndex = 0,
       currencySymbol = _activeBillState.value.currencySymbol
     )
     _currentScreen.value = Screen.BillEntry
+  }
+
+  fun updateSellerMetadata(
+    sellerName: String,
+    customerName: String,
+    phone: String,
+    invoiceNumber: String,
+    dateMillis: Long,
+    note: String,
+    claimedTotalStr: String,
+    deductionAmountStr: String = _activeBillState.value.deductionAmountStr
+  ) {
+    _activeBillState.update { current ->
+      current.copy(
+        sellerName = sellerName,
+        customerName = customerName,
+        phone = phone,
+        invoiceNumber = invoiceNumber,
+        dateMillis = dateMillis,
+        note = note,
+        claimedTotalStr = claimedTotalStr,
+        deductionAmountStr = deductionAmountStr
+      )
+    }
   }
 
   fun updateCustomerMetadata(
@@ -145,19 +200,36 @@ class BillViewModel(application: Application) : AndroidViewModel(application) {
     dateMillis: Long,
     note: String
   ) {
-    _activeBillState.update { current ->
-      current.copy(
-        customerName = customerName,
-        phone = phone,
-        invoiceNumber = invoiceNumber,
-        dateMillis = dateMillis,
-        note = note
-      )
-    }
+    updateSellerMetadata(
+      sellerName = customerName,
+      customerName = customerName,
+      phone = phone,
+      invoiceNumber = invoiceNumber,
+      dateMillis = dateMillis,
+      note = note,
+      claimedTotalStr = _activeBillState.value.claimedTotalStr,
+      deductionAmountStr = _activeBillState.value.deductionAmountStr
+    )
+  }
+
+  fun setClaimedTotalStr(amountStr: String) {
+    _activeBillState.update { it.copy(claimedTotalStr = amountStr) }
+  }
+
+  fun setDeductionAmountStr(amountStr: String) {
+    _activeBillState.update { it.copy(deductionAmountStr = amountStr) }
   }
 
   fun setCurrencySymbol(symbol: String) {
     _activeBillState.update { it.copy(currencySymbol = symbol) }
+  }
+
+  fun toggleProductNameVisibility() {
+    _activeBillState.update { it.copy(showProductName = !it.showProductName) }
+  }
+
+  fun setShowProductName(show: Boolean) {
+    _activeBillState.update { it.copy(showProductName = show) }
   }
 
   fun selectPage(pageIndex: Int) {
@@ -171,7 +243,8 @@ class BillViewModel(application: Application) : AndroidViewModel(application) {
     rowIndex: Int,
     productName: String? = null,
     quantityStr: String? = null,
-    rateStr: String? = null
+    rateStr: String? = null,
+    isReturn: Boolean? = null
   ) {
     _activeBillState.update { state ->
       val pages = state.pages.toMutableList()
@@ -185,7 +258,8 @@ class BillViewModel(application: Application) : AndroidViewModel(application) {
       val updatedRow = currentRow.copy(
         productName = productName ?: currentRow.productName,
         quantityStr = quantityStr ?: currentRow.quantityStr,
-        rateStr = rateStr ?: currentRow.rateStr
+        rateStr = rateStr ?: currentRow.rateStr,
+        isReturn = isReturn ?: currentRow.isReturn
       )
       rows[rowIndex] = updatedRow
 
@@ -194,6 +268,61 @@ class BillViewModel(application: Application) : AndroidViewModel(application) {
       if (isLastRow && updatedRow.isRowFilled) {
         rows.add(UiRow())
       }
+
+      pages[pageIndex] = page.copy(rows = rows)
+      state.copy(pages = pages)
+    }
+  }
+
+  fun addNegativeRow(pageIndex: Int) {
+    _activeBillState.update { state ->
+      val pages = state.pages.toMutableList()
+      if (pageIndex !in pages.indices) return@update state
+
+      val page = pages[pageIndex]
+      val rows = page.rows.toMutableList()
+
+      // If the last row is completely empty and non-return, turn it into return row or append
+      val lastRow = rows.lastOrNull()
+      if (lastRow != null && !lastRow.isRowFilled && !lastRow.isReturn) {
+        rows[rows.size - 1] = UiRow(isReturn = true)
+      } else {
+        rows.add(UiRow(isReturn = true))
+      }
+
+      _snackbarMessage.value = "Added Return / Missing item row (−)"
+      pages[pageIndex] = page.copy(rows = rows)
+      state.copy(pages = pages)
+    }
+  }
+
+  fun addPositiveRow(pageIndex: Int) {
+    _activeBillState.update { state ->
+      val pages = state.pages.toMutableList()
+      if (pageIndex !in pages.indices) return@update state
+
+      val page = pages[pageIndex]
+      val rows = page.rows.toMutableList()
+      rows.add(UiRow(isReturn = false))
+      pages[pageIndex] = page.copy(rows = rows)
+      state.copy(pages = pages)
+    }
+  }
+
+  fun toggleRowReturn(pageIndex: Int, rowIndex: Int) {
+    _activeBillState.update { state ->
+      val pages = state.pages.toMutableList()
+      if (pageIndex !in pages.indices) return@update state
+
+      val page = pages[pageIndex]
+      val rows = page.rows.toMutableList()
+      if (rowIndex !in rows.indices) return@update state
+
+      val currentRow = rows[rowIndex]
+      val newIsReturn = !currentRow.isReturn
+      rows[rowIndex] = currentRow.copy(isReturn = newIsReturn)
+
+      _snackbarMessage.value = if (newIsReturn) "Item marked as Return / Deduction (-)" else "Item marked as Addition (+)"
 
       pages[pageIndex] = page.copy(rows = rows)
       state.copy(pages = pages)
@@ -301,12 +430,15 @@ class BillViewModel(application: Application) : AndroidViewModel(application) {
     viewModelScope.launch {
       val billEntity = BillEntity(
         id = state.billId,
+        sellerName = state.sellerName.trim(),
         customerName = state.customerName.trim(),
         phone = state.phone.trim(),
         dateMillis = state.dateMillis,
         invoiceNumber = state.invoiceNumber.ifBlank { Formatters.generateInvoiceNumber() },
         note = state.note.trim(),
         grossTotal = state.grossTotal,
+        deductionAmount = state.deductionAmount,
+        claimedTotal = state.claimedTotal,
         isDraft = false,
         updatedAt = System.currentTimeMillis()
       )
@@ -324,6 +456,7 @@ class BillViewModel(application: Application) : AndroidViewModel(application) {
             quantity = row.quantity,
             rate = row.rate,
             total = row.total,
+            isReturn = row.isReturn,
             orderIndex = idx
           )
         }
@@ -333,7 +466,7 @@ class BillViewModel(application: Application) : AndroidViewModel(application) {
       val savedId = repository.saveBill(billEntity, pageList)
       _activeBillState.update { it.copy(billId = savedId, isSavedToDb = true) }
       if (!autoSave) {
-        _snackbarMessage.value = "Bill saved successfully"
+        _snackbarMessage.value = "Bill verified and saved"
       }
       onComplete?.invoke(savedId)
     }
@@ -353,7 +486,8 @@ class BillViewModel(application: Application) : AndroidViewModel(application) {
                   id = UUID.randomUUID().toString(),
                   productName = r.productName,
                   quantityStr = r.quantity?.let { Formatters.formatQuantity(it) } ?: "",
-                  rateStr = r.rate?.let { Formatters.formatMoneyValue(it) } ?: ""
+                  rateStr = r.rate?.let { Formatters.formatMoneyValue(it) } ?: "",
+                  isReturn = r.isReturn
                 )
               }.toMutableList()
 
@@ -373,11 +507,14 @@ class BillViewModel(application: Application) : AndroidViewModel(application) {
 
         _activeBillState.value = ActiveBillState(
           billId = billDetails.bill.id,
+          sellerName = billDetails.bill.sellerName.ifBlank { billDetails.bill.customerName },
           customerName = billDetails.bill.customerName,
           phone = billDetails.bill.phone,
           dateMillis = billDetails.bill.dateMillis,
           invoiceNumber = billDetails.bill.invoiceNumber,
           note = billDetails.bill.note,
+          deductionAmountStr = if (billDetails.bill.deductionAmount > 0.0) Formatters.formatMoneyValue(billDetails.bill.deductionAmount) else "",
+          claimedTotalStr = if (billDetails.bill.claimedTotal > 0.0) Formatters.formatMoneyValue(billDetails.bill.claimedTotal) else "",
           pages = loadedPages,
           activePageIndex = 0,
           currencySymbol = _activeBillState.value.currencySymbol,
@@ -405,7 +542,8 @@ class BillViewModel(application: Application) : AndroidViewModel(application) {
                 id = UUID.randomUUID().toString(),
                 productName = r.productName,
                 quantityStr = r.quantity?.let { Formatters.formatQuantity(it) } ?: "",
-                rateStr = r.rate?.let { Formatters.formatMoneyValue(it) } ?: ""
+                rateStr = r.rate?.let { Formatters.formatMoneyValue(it) } ?: "",
+                isReturn = r.isReturn
               )
             }.toMutableList()
             rows.add(UiRow())
@@ -419,17 +557,20 @@ class BillViewModel(application: Application) : AndroidViewModel(application) {
 
         _activeBillState.value = ActiveBillState(
           billId = 0L,
+          sellerName = billDetails.bill.sellerName.ifBlank { billDetails.bill.customerName },
           customerName = billDetails.bill.customerName,
           phone = billDetails.bill.phone,
           dateMillis = System.currentTimeMillis(),
           invoiceNumber = Formatters.generateInvoiceNumber(),
           note = billDetails.bill.note,
+          deductionAmountStr = if (billDetails.bill.deductionAmount > 0.0) Formatters.formatMoneyValue(billDetails.bill.deductionAmount) else "",
+          claimedTotalStr = if (billDetails.bill.claimedTotal > 0.0) Formatters.formatMoneyValue(billDetails.bill.claimedTotal) else "",
           pages = duplicatedPages.ifEmpty { listOf(UiPage(pageNumber = 1)) },
           activePageIndex = 0,
           currencySymbol = _activeBillState.value.currencySymbol
         )
         _currentScreen.value = Screen.BillEntry
-        _snackbarMessage.value = "Bill duplicated as new draft"
+        _snackbarMessage.value = "Bill duplicated for new verification"
       }
     }
   }

@@ -11,16 +11,29 @@ import androidx.room.Relation
 data class BillEntity(
   @PrimaryKey(autoGenerate = true)
   val id: Long = 0,
+  val sellerName: String = "",
   val customerName: String = "",
   val phone: String = "",
   val dateMillis: Long = System.currentTimeMillis(),
   val invoiceNumber: String = "",
   val note: String = "",
   val grossTotal: Double = 0.0,
+  val deductionAmount: Double = 0.0,
+  val claimedTotal: Double = 0.0,
   val isDraft: Boolean = false,
   val createdAt: Long = System.currentTimeMillis(),
   val updatedAt: Long = System.currentTimeMillis()
-)
+) {
+  val displayName: String get() = sellerName.ifBlank { customerName.ifBlank { "Unassigned Seller" } }
+  val netTotal: Double get() = (grossTotal - deductionAmount).coerceAtLeast(0.0)
+  val effectiveTotal: Double get() = if (deductionAmount > 0.0) netTotal else grossTotal
+  val hasClaimedTotal: Boolean get() = claimedTotal > 0.0
+  val difference: Double get() = claimedTotal - effectiveTotal
+  val discrepancy: Double get() = kotlin.math.abs(difference)
+  val isExactMatch: Boolean get() = hasClaimedTotal && kotlin.math.abs(difference) < 0.01
+  val isOvercharged: Boolean get() = hasClaimedTotal && difference > 0.01
+  val isUndercharged: Boolean get() = hasClaimedTotal && difference < -0.01
+}
 
 @Entity(
   tableName = "bill_pages",
@@ -63,6 +76,7 @@ data class BillRowEntity(
   val quantity: Double? = null,
   val rate: Double? = null,
   val total: Double = 0.0,
+  val isReturn: Boolean = false,
   val orderIndex: Int = 0
 )
 

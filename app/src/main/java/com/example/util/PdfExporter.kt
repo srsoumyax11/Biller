@@ -47,9 +47,9 @@ object PdfExporter {
 
       // Header Text
       textPaint.color = Color.WHITE
-      textPaint.textSize = 20f
+      textPaint.textSize = 18f
       textPaint.typeface = Typeface.create(Typeface.SANS_SERIF, Typeface.BOLD)
-      canvas.drawText("BILL CALCULATOR • INVOICE", 32f, 40f, textPaint)
+      canvas.drawText("BILL VERIFIER • AUDIT REPORT", 32f, 40f, textPaint)
 
       textPaint.textSize = 11f
       textPaint.typeface = Typeface.create(Typeface.SANS_SERIF, Typeface.NORMAL)
@@ -68,12 +68,12 @@ object PdfExporter {
       paint.strokeWidth = 1f
       canvas.drawRoundRect(RectF(32f, currentY, pageWidth - 32f, currentY + 70f), 8f, 8f, paint)
 
-      // Customer Info text
+      // Seller / Shop Info text
       textPaint.color = Color.parseColor("#1E2A44")
       textPaint.textSize = 13f
       textPaint.typeface = Typeface.create(Typeface.SANS_SERIF, Typeface.BOLD)
-      val custName = if (bill.customerName.isNotBlank()) bill.customerName else "Walk-in Customer"
-      canvas.drawText("Customer: $custName", 46f, currentY + 24f, textPaint)
+      val sellerName = if (bill.sellerName.isNotBlank()) bill.sellerName else if (bill.customerName.isNotBlank()) bill.customerName else "Unknown Seller"
+      canvas.drawText("Seller / Shop: $sellerName", 46f, currentY + 24f, textPaint)
 
       textPaint.color = Color.parseColor("#6B7280")
       textPaint.textSize = 11f
@@ -82,7 +82,7 @@ object PdfExporter {
       canvas.drawText(phoneText, 46f, currentY + 44f, textPaint)
 
       val dateText = "Date: ${Formatters.formatDate(bill.dateMillis)}"
-      val invText = "Invoice #: ${bill.invoiceNumber}"
+      val invText = "Bill / Parchi #: ${bill.invoiceNumber}"
       val dateWidth = textPaint.measureText(dateText)
       val invWidth = textPaint.measureText(invText)
 
@@ -108,7 +108,7 @@ object PdfExporter {
       canvas.drawText("ITEM DESCRIPTION", 76f, currentY + 18f, textPaint)
       canvas.drawText("QTY", 330f, currentY + 18f, textPaint)
       canvas.drawText("RATE", 410f, currentY + 18f, textPaint)
-      canvas.drawText("TOTAL ($currencySymbol)", 490f, currentY + 18f, textPaint)
+      canvas.drawText("TOTAL ($currencySymbol)", 480f, currentY + 18f, textPaint)
 
       currentY += 28f
 
@@ -122,25 +122,31 @@ object PdfExporter {
 
       for ((index, row) in filteredRows.withIndex()) {
         val rowY = currentY + (index * rowHeight)
+        val isReturn = row.isReturn
 
-        // Alternate row fill
-        if (index % 2 == 1) {
-          val fillPaint = Paint()
+        // Alternate row fill or return row fill
+        val fillPaint = Paint()
+        fillPaint.style = Paint.Style.FILL
+        if (isReturn) {
+          fillPaint.color = Color.parseColor("#FEE2E2")
+          canvas.drawRect(32f, rowY, pageWidth - 32f, rowY + rowHeight, fillPaint)
+        } else if (index % 2 == 1) {
           fillPaint.color = Color.parseColor("#F5F2EB")
-          fillPaint.style = Paint.Style.FILL
           canvas.drawRect(32f, rowY, pageWidth - 32f, rowY + rowHeight, fillPaint)
         }
 
         // Ruled line
         canvas.drawLine(32f, rowY + rowHeight, pageWidth - 32f, rowY + rowHeight, paint)
 
-        textPaint.color = Color.parseColor("#2B2B2B")
+        textPaint.color = if (isReturn) Color.parseColor("#991B1B") else Color.parseColor("#2B2B2B")
         textPaint.textSize = 11f
         textPaint.typeface = Typeface.create(Typeface.SANS_SERIF, Typeface.NORMAL)
         canvas.drawText("${index + 1}", 44f, rowY + 18f, textPaint)
 
         val prodName = if (row.productName.isNotBlank()) row.productName else "Item ${index + 1}"
-        val truncatedName = if (prodName.length > 30) prodName.take(28) + "…" else prodName
+        val returnPrefix = if (isReturn) "[RET] " else ""
+        val fullItemName = returnPrefix + prodName
+        val truncatedName = if (fullItemName.length > 30) fullItemName.take(28) + "…" else fullItemName
         canvas.drawText(truncatedName, 76f, rowY + 18f, textPaint)
 
         // Monospace Numbers
@@ -151,9 +157,16 @@ object PdfExporter {
         val rateStr = Formatters.formatMoneyValue(row.rate)
         canvas.drawText(rateStr, 410f, rowY + 18f, textPaint)
 
-        val totalStr = if (row.total > 0) Formatters.formatMoneyValue(row.total) else "-"
+        val totalStr = if (isReturn) {
+          "-${Formatters.formatMoneyValue(kotlin.math.abs(row.total))}"
+        } else if (row.total > 0) {
+          Formatters.formatMoneyValue(row.total)
+        } else {
+          "-"
+        }
+        textPaint.color = if (isReturn) Color.parseColor("#B91C1C") else Color.parseColor("#15803D")
         textPaint.typeface = Typeface.create(Typeface.MONOSPACE, Typeface.BOLD)
-        canvas.drawText(totalStr, 490f, rowY + 18f, textPaint)
+        canvas.drawText(totalStr, 480f, rowY + 18f, textPaint)
       }
 
       val tableBottomY = currentY + (filteredRows.size * rowHeight)
@@ -179,18 +192,47 @@ object PdfExporter {
       textPaint.typeface = Typeface.create(Typeface.MONOSPACE, Typeface.BOLD)
       canvas.drawText(pageTotalStr, pageWidth - 44f - pageTotWidth, pageTotalY + 23f, textPaint)
 
-      // Page Saved Stamp
+      // Page Verified Stamp
       paint.color = Color.parseColor("#2F6F4E")
       paint.style = Paint.Style.FILL
       canvas.drawRoundRect(RectF(32f, pageTotalY + 4f, 150f, pageTotalY + 32f), 4f, 4f, paint)
       textPaint.color = Color.WHITE
       textPaint.textSize = 10f
       textPaint.typeface = Typeface.create(Typeface.SANS_SERIF, Typeface.BOLD)
-      canvas.drawText("✓ PAGE SAVED", 48f, pageTotalY + 22f, textPaint)
+      canvas.drawText("✓ PAGE VERIFIED", 44f, pageTotalY + 22f, textPaint)
 
-      // Bottom Section on the Last Page (Gross Total & Notes)
+      // Bottom Section on the Last Page (Gross Total, Audit Verdict, & Notes)
       if (currentPageNumber == totalPagesCount) {
-        val grossY = pageTotalY + 56f
+        var grossY = pageTotalY + 52f
+
+        // Audit verdict banner if claimedTotal > 0
+        if (bill.claimedTotal > 0.0) {
+          val auditBoxHeight = 48f
+          paint.color = if (bill.isExactMatch) Color.parseColor("#14532D") else Color.parseColor("#7F1D1D")
+          paint.style = Paint.Style.FILL
+          canvas.drawRoundRect(RectF(32f, grossY, pageWidth - 32f, grossY + auditBoxHeight), 6f, 6f, paint)
+
+          textPaint.color = Color.WHITE
+          textPaint.textSize = 11f
+          textPaint.typeface = Typeface.create(Typeface.SANS_SERIF, Typeface.BOLD)
+          val auditTitle = if (bill.isExactMatch) "AUDIT RESULT: EXACT MATCH (No Error)" else "AUDIT RESULT: DISCREPANCY FOUND"
+          canvas.drawText(auditTitle, 46f, grossY + 20f, textPaint)
+
+          textPaint.textSize = 10f
+          textPaint.typeface = Typeface.create(Typeface.SANS_SERIF, Typeface.NORMAL)
+          val comparisonText = "Seller's Paper Total: ${Formatters.formatCurrency(bill.claimedTotal, currencySymbol)} | Calculated Net: ${Formatters.formatCurrency(bill.netTotal, currencySymbol)}"
+          canvas.drawText(comparisonText, 46f, grossY + 36f, textPaint)
+
+          if (!bill.isExactMatch) {
+            val diffText = if (bill.isOvercharged) "Overcharge: +${Formatters.formatCurrency(bill.discrepancy, currencySymbol)}" else "Discrepancy: ${Formatters.formatCurrency(bill.discrepancy, currencySymbol)}"
+            val diffWidth = textPaint.measureText(diffText)
+            textPaint.typeface = Typeface.create(Typeface.SANS_SERIF, Typeface.BOLD)
+            textPaint.color = Color.parseColor("#FCA5A5")
+            canvas.drawText(diffText, pageWidth - 46f - diffWidth, grossY + 28f, textPaint)
+          }
+
+          grossY += auditBoxHeight + 12f
+        }
 
         // Notes if any
         if (bill.note.isNotBlank()) {
@@ -200,29 +242,35 @@ object PdfExporter {
           canvas.drawText("Note: ${bill.note}", 32f, grossY + 20f, textPaint)
         }
 
-        // Grand Gross Total Box
+        // Grand Calculated Total Box
         paint.color = Color.parseColor("#1E2A44")
         paint.style = Paint.Style.FILL
-        canvas.drawRoundRect(RectF(240f, grossY, pageWidth - 32f, grossY + 54f), 8f, 8f, paint)
+        canvas.drawRoundRect(RectF(220f, grossY, pageWidth - 32f, grossY + 60f), 8f, 8f, paint)
 
         textPaint.color = Color.WHITE
-        textPaint.textSize = 14f
+        textPaint.textSize = 11f
         textPaint.typeface = Typeface.create(Typeface.SANS_SERIF, Typeface.BOLD)
-        canvas.drawText("GROSS TOTAL:", 256f, grossY + 33f, textPaint)
+        canvas.drawText("NET PAYABLE:", 236f, grossY + 24f, textPaint)
 
-        val grossTotalStr = Formatters.formatCurrency(bill.grossTotal, currencySymbol)
+        if (bill.deductionAmount > 0.0) {
+          textPaint.textSize = 9.5f
+          textPaint.color = Color.parseColor("#FCA5A5")
+          canvas.drawText("(Deduction: -${Formatters.formatCurrency(bill.deductionAmount, currencySymbol)})", 236f, grossY + 42f, textPaint)
+        }
+
+        val netTotalStr = Formatters.formatCurrency(bill.netTotal, currencySymbol)
         textPaint.color = Color.parseColor("#4ADE80")
-        textPaint.textSize = 18f
+        textPaint.textSize = 17f
         textPaint.typeface = Typeface.create(Typeface.MONOSPACE, Typeface.BOLD)
-        val grossWidth = textPaint.measureText(grossTotalStr)
-        canvas.drawText(grossTotalStr, pageWidth - 44f - grossWidth, grossY + 35f, textPaint)
+        val netWidth = textPaint.measureText(netTotalStr)
+        canvas.drawText(netTotalStr, pageWidth - 44f - netWidth, grossY + 38f, textPaint)
       }
 
       // Footer
       textPaint.color = Color.parseColor("#9CA3AF")
       textPaint.textSize = 9f
       textPaint.typeface = Typeface.create(Typeface.SANS_SERIF, Typeface.NORMAL)
-      val footer = "Generated via Bill Calculator • Faster, more reliable digital ledger"
+      val footer = "Verified via Bill Verifier • Paper Bill & Ledger Calculation Audit"
       val footerWidth = textPaint.measureText(footer)
       canvas.drawText(footer, (pageWidth - footerWidth) / 2f, pageHeight - 24f, textPaint)
 

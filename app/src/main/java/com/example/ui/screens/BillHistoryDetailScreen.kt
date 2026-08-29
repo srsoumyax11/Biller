@@ -20,12 +20,14 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.PictureAsPdf
 import androidx.compose.material.icons.filled.Print
 import androidx.compose.material.icons.filled.ReceiptLong
 import androidx.compose.material.icons.filled.Share
+import androidx.compose.material.icons.filled.WarningAmber
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -88,6 +90,9 @@ fun BillHistoryDetailScreen(
   val billEntity = BillEntity(
     id = billState.billId,
     customerName = billState.customerName,
+    sellerName = billState.sellerName.ifBlank { billState.customerName },
+    claimedTotal = billState.claimedTotal,
+    deductionAmount = billState.deductionAmount,
     phone = billState.phone,
     dateMillis = billState.dateMillis,
     invoiceNumber = billState.invoiceNumber,
@@ -108,6 +113,7 @@ fun BillHistoryDetailScreen(
         quantity = row.quantity,
         rate = row.rate,
         total = row.total,
+        isReturn = row.isReturn,
         orderIndex = idx
       )
     }
@@ -128,12 +134,12 @@ fun BillHistoryDetailScreen(
               fontFamily = FontFamily.Monospace,
               fontWeight = FontWeight.Bold,
               fontSize = 16.sp,
-              color = Color.White
+              color = ledgerColors.headerContent
             )
             Text(
-              text = "Archived Ledger Bill",
+              text = "Saved Verification Record",
               style = MaterialTheme.typography.bodySmall,
-              color = Color.White.copy(alpha = 0.7f)
+              color = ledgerColors.headerContentMuted
             )
           }
         },
@@ -142,7 +148,7 @@ fun BillHistoryDetailScreen(
             Icon(
               imageVector = Icons.AutoMirrored.Filled.ArrowBack,
               contentDescription = "Back",
-              tint = Color.White
+              tint = ledgerColors.headerContent
             )
           }
         },
@@ -154,7 +160,7 @@ fun BillHistoryDetailScreen(
             Icon(
               imageVector = Icons.Default.Edit,
               contentDescription = "Reopen & Edit",
-              tint = Color.White
+              tint = ledgerColors.headerContent
             )
           }
           IconButton(
@@ -164,18 +170,18 @@ fun BillHistoryDetailScreen(
             Icon(
               imageVector = Icons.Default.Delete,
               contentDescription = "Delete",
-              tint = Color.White
+              tint = ledgerColors.headerContent
             )
           }
         },
         colors = TopAppBarDefaults.topAppBarColors(
-          containerColor = ledgerColors.inkNavy
+          containerColor = ledgerColors.headerSurface
         )
       )
     },
     bottomBar = {
       Surface(
-        color = ledgerColors.inkNavy,
+        color = ledgerColors.headerSurface,
         shadowElevation = 8.dp,
         modifier = Modifier.fillMaxWidth()
       ) {
@@ -263,6 +269,96 @@ fun BillHistoryDetailScreen(
       contentPadding = PaddingValues(16.dp),
       verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
+      // Audit Verdict / Comparison Banner
+      if (billState.hasClaimedTotal) {
+        item {
+          Card(
+            shape = RoundedCornerShape(12.dp),
+            colors = CardDefaults.cardColors(
+              containerColor = when {
+                billState.isExactMatch -> Color(0xFF14532D)
+                billState.isOvercharged -> Color(0xFF7F1D1D)
+                else -> Color(0xFF1E293B)
+              }
+            ),
+            modifier = Modifier.fillMaxWidth()
+          ) {
+            Column(modifier = Modifier.padding(14.dp)) {
+              Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+              ) {
+                Icon(
+                  imageVector = if (billState.isExactMatch) Icons.Default.CheckCircle else Icons.Default.WarningAmber,
+                  contentDescription = null,
+                  tint = if (billState.isExactMatch) Color(0xFF4ADE80) else Color(0xFFFCA5A5),
+                  modifier = Modifier.size(20.dp)
+                )
+                Text(
+                  text = when {
+                    billState.isExactMatch -> "AUDIT RESULT: EXACT MATCH"
+                    billState.isOvercharged -> "AUDIT RESULT: OVERCHARGED"
+                    else -> "AUDIT RESULT: DISCREPANCY"
+                  },
+                  fontWeight = FontWeight.Bold,
+                  fontSize = 13.5.sp,
+                  color = if (billState.isExactMatch) Color(0xFF4ADE80) else Color(0xFFFCA5A5)
+                )
+              }
+
+              Spacer(modifier = Modifier.height(8.dp))
+
+              Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween
+              ) {
+                Column {
+                  Text("SELLER'S CLAIMED", color = Color.White.copy(alpha = 0.7f), fontSize = 10.5.sp, fontWeight = FontWeight.Bold)
+                  Text(
+                    text = Formatters.formatCurrency(billState.claimedTotal, billState.currencySymbol),
+                    style = LedgerNumeralLarge,
+                    fontSize = 16.sp,
+                    color = Color.White
+                  )
+                }
+
+                Column(horizontalAlignment = Alignment.End) {
+                  Text("ACTUAL CALCULATED NET", color = Color.White.copy(alpha = 0.7f), fontSize = 10.5.sp, fontWeight = FontWeight.Bold)
+                  Text(
+                    text = Formatters.formatCurrency(billState.netTotal, billState.currencySymbol),
+                    style = LedgerNumeralLarge,
+                    fontSize = 16.sp,
+                    color = Color(0xFF4ADE80)
+                  )
+                }
+              }
+
+              if (!billState.isExactMatch) {
+                HorizontalDivider(modifier = Modifier.padding(vertical = 6.dp), color = Color.White.copy(alpha = 0.2f))
+                Row(
+                  modifier = Modifier.fillMaxWidth(),
+                  horizontalArrangement = Arrangement.SpaceBetween,
+                  verticalAlignment = Alignment.CenterVertically
+                ) {
+                  Text(
+                    text = if (billState.isOvercharged) "Overcharge Difference:" else "Discrepancy:",
+                    color = Color.White.copy(alpha = 0.9f),
+                    fontSize = 11.5.sp,
+                    fontWeight = FontWeight.Medium
+                  )
+                  Text(
+                    text = Formatters.formatCurrency(billState.discrepancy, billState.currencySymbol),
+                    fontWeight = FontWeight.Black,
+                    fontSize = 14.sp,
+                    color = if (billState.isOvercharged) Color(0xFFFCA5A5) else Color(0xFFFDE047)
+                  )
+                }
+              }
+            }
+          }
+        }
+      }
+
       // Header Card
       item {
         Card(
@@ -280,12 +376,12 @@ fun BillHistoryDetailScreen(
             ) {
               Column {
                 Text(
-                  text = "CUSTOMER",
+                  text = "SELLER / SHOP",
                   style = MaterialTheme.typography.labelSmall,
                   color = ledgerColors.mutedCharcoal
                 )
                 Text(
-                  text = if (billState.customerName.isNotBlank()) billState.customerName else "Walk-in Customer",
+                  text = billState.displayName,
                   style = MaterialTheme.typography.titleMedium,
                   fontWeight = FontWeight.Bold,
                   color = ledgerColors.inkNavy
@@ -299,7 +395,7 @@ fun BillHistoryDetailScreen(
                 }
               }
 
-              SavedStampBadge(text = "SAVED BILL")
+              SavedStampBadge(text = if (billState.hasClaimedTotal && billState.isExactMatch) "AUDIT OK" else "SAVED")
             }
 
             HorizontalDivider(
@@ -355,7 +451,7 @@ fun BillHistoryDetailScreen(
             Row(
               modifier = Modifier
                 .fillMaxWidth()
-                .background(ledgerColors.inkNavyLight)
+                .background(ledgerColors.tableHeaderBg)
                 .padding(horizontal = 14.dp, vertical = 8.dp),
               horizontalArrangement = Arrangement.SpaceBetween,
               verticalAlignment = Alignment.CenterVertically
@@ -369,12 +465,12 @@ fun BillHistoryDetailScreen(
               Text(
                 text = Formatters.formatCurrency(page.pageTotal, billState.currencySymbol),
                 style = LedgerNumeralMedium,
-                color = Color(0xFF4ADE80),
+                color = if (page.pageTotal < 0) ledgerColors.softRed else Color(0xFF4ADE80),
                 fontSize = 14.sp
               )
             }
 
-            // Table Header
+            // Table Header (Crisp Alignment)
             Row(
               modifier = Modifier
                 .fillMaxWidth()
@@ -382,54 +478,92 @@ fun BillHistoryDetailScreen(
                 .padding(horizontal = 12.dp, vertical = 6.dp),
               verticalAlignment = Alignment.CenterVertically
             ) {
-              Text("#", style = MaterialTheme.typography.labelSmall, color = ledgerColors.mutedCharcoal, modifier = Modifier.width(22.dp))
-              Text("ITEM", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, color = ledgerColors.inkNavy, modifier = Modifier.weight(1.5f))
-              Text("QTY", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, color = ledgerColors.inkNavy, textAlign = TextAlign.End, modifier = Modifier.weight(0.7f))
-              Text("RATE", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, color = ledgerColors.inkNavy, textAlign = TextAlign.End, modifier = Modifier.weight(0.8f))
-              Text("TOTAL", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, color = ledgerColors.inkNavy, textAlign = TextAlign.End, modifier = Modifier.weight(1f))
+              Text("#", style = MaterialTheme.typography.labelSmall, color = ledgerColors.inkNavy, fontWeight = FontWeight.Bold, modifier = Modifier.width(26.dp))
+              Text("ITEM", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, color = ledgerColors.inkNavy, modifier = Modifier.weight(2.4f))
+              Text("QTY", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, color = ledgerColors.inkNavy, textAlign = TextAlign.End, modifier = Modifier.weight(0.9f))
+              Text("RATE", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, color = ledgerColors.inkNavy, textAlign = TextAlign.End, modifier = Modifier.weight(1.0f))
+              Text("TOTAL", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, color = ledgerColors.inkNavy, textAlign = TextAlign.End, modifier = Modifier.weight(1.3f))
             }
 
             HorizontalDivider(thickness = 1.dp, color = ledgerColors.ruledLine)
 
             filledRows.forEachIndexed { rowIdx, row ->
+              val isReturnRow = row.isReturn
               Row(
                 modifier = Modifier
                   .fillMaxWidth()
-                  .padding(horizontal = 12.dp, vertical = 8.dp),
+                  .background(if (isReturnRow) ledgerColors.softRedBg else Color.Transparent)
+                .padding(horizontal = 12.dp, vertical = 8.dp),
                 verticalAlignment = Alignment.CenterVertically
               ) {
-                Text("${rowIdx + 1}", style = LedgerNumeralRegular, fontSize = 11.sp, color = ledgerColors.mutedCharcoal, modifier = Modifier.width(22.dp))
                 Text(
-                  text = row.productName.ifBlank { "Item ${rowIdx + 1}" },
-                  style = MaterialTheme.typography.bodySmall,
-                  fontWeight = FontWeight.Medium,
-                  color = ledgerColors.charcoal,
-                  modifier = Modifier.weight(1.5f)
+                  text = "${rowIdx + 1}",
+                  style = LedgerNumeralRegular,
+                  fontSize = 11.sp,
+                  color = if (isReturnRow) ledgerColors.softRed else ledgerColors.mutedCharcoal,
+                  modifier = Modifier.width(26.dp)
                 )
+
+                Row(
+                  modifier = Modifier.weight(2.4f),
+                  verticalAlignment = Alignment.CenterVertically
+                ) {
+                  if (isReturnRow) {
+                    Surface(
+                      shape = RoundedCornerShape(3.dp),
+                      color = ledgerColors.softRed,
+                      modifier = Modifier.padding(end = 4.dp)
+                    ) {
+                      Text(
+                        text = "RET",
+                        color = Color.White,
+                        fontSize = 9.sp,
+                        fontWeight = FontWeight.Black,
+                        modifier = Modifier.padding(horizontal = 3.dp, vertical = 1.dp)
+                      )
+                    }
+                  }
+                  Text(
+                    text = row.productName.ifBlank { "Item ${rowIdx + 1}" },
+                    style = MaterialTheme.typography.bodySmall,
+                    fontWeight = FontWeight.Medium,
+                    color = if (isReturnRow) ledgerColors.softRed else ledgerColors.charcoal,
+                    maxLines = 1
+                  )
+                }
+
                 Text(
                   text = Formatters.formatQuantity(row.quantity),
                   style = LedgerNumeralRegular,
                   fontSize = 12.sp,
                   textAlign = TextAlign.End,
-                  color = ledgerColors.charcoal,
-                  modifier = Modifier.weight(0.7f)
+                  color = if (isReturnRow) ledgerColors.softRed else ledgerColors.charcoal,
+                  modifier = Modifier.weight(0.9f)
                 )
+
                 Text(
                   text = Formatters.formatMoneyValue(row.rate),
                   style = LedgerNumeralRegular,
                   fontSize = 12.sp,
                   textAlign = TextAlign.End,
-                  color = ledgerColors.charcoal,
-                  modifier = Modifier.weight(0.8f)
+                  color = if (isReturnRow) ledgerColors.softRed else ledgerColors.charcoal,
+                  modifier = Modifier.weight(1.0f)
                 )
+
+                val rowTotalStr = if (isReturnRow) {
+                  "-${Formatters.formatMoneyValue(kotlin.math.abs(row.total))}"
+                } else {
+                  Formatters.formatMoneyValue(row.total)
+                }
+
                 Text(
-                  text = Formatters.formatMoneyValue(row.total),
+                  text = rowTotalStr,
                   style = LedgerNumeralRegular,
                   fontWeight = FontWeight.Bold,
                   fontSize = 12.sp,
                   textAlign = TextAlign.End,
-                  color = ledgerColors.ledgerGreen,
-                  modifier = Modifier.weight(1f)
+                  color = if (isReturnRow) ledgerColors.softRed else ledgerColors.ledgerGreen,
+                  modifier = Modifier.weight(1.3f)
                 )
               }
               HorizontalDivider(thickness = 0.8.dp, color = ledgerColors.ruledLine)
@@ -438,42 +572,92 @@ fun BillHistoryDetailScreen(
         }
       }
 
-      // Gross Total Card
+      // Grand Total Card
       item {
         Card(
           shape = RoundedCornerShape(12.dp),
-          colors = CardDefaults.cardColors(containerColor = ledgerColors.inkNavy),
+          colors = CardDefaults.cardColors(containerColor = ledgerColors.heroCardContainer),
           modifier = Modifier.fillMaxWidth()
         ) {
-          Row(
+          Column(
             modifier = Modifier
               .fillMaxWidth()
-              .padding(18.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
+              .padding(18.dp)
           ) {
-            Column {
+            Row(
+              modifier = Modifier.fillMaxWidth(),
+              horizontalArrangement = Arrangement.SpaceBetween,
+              verticalAlignment = Alignment.CenterVertically
+            ) {
               Text(
-                text = "GROSS TOTAL",
-                style = MaterialTheme.typography.titleSmall,
-                fontWeight = FontWeight.Bold,
+                text = "Gross Items Total (${billState.totalItemCount} items)",
                 color = Color.White.copy(alpha = 0.8f),
-                letterSpacing = 1.sp
+                fontSize = 13.sp
               )
               Text(
-                text = "Total across all ${billState.pages.size} pages",
-                style = MaterialTheme.typography.bodySmall,
-                color = Color.White.copy(alpha = 0.6f)
+                text = Formatters.formatCurrency(billState.grossTotal, billState.currencySymbol),
+                style = LedgerNumeralRegular,
+                fontWeight = FontWeight.SemiBold,
+                color = Color.White,
+                fontSize = 14.sp
               )
             }
 
-            Text(
-              text = Formatters.formatCurrency(billState.grossTotal, billState.currencySymbol),
-              style = LedgerNumeralLarge,
-              color = Color(0xFF4ADE80),
-              fontSize = 24.sp,
-              fontWeight = FontWeight.Black
+            if (billState.deductionAmount > 0.0) {
+              Spacer(modifier = Modifier.height(6.dp))
+              Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+              ) {
+                Text(
+                  text = "Advance Paid / Deduction",
+                  color = Color(0xFFFCA5A5),
+                  fontSize = 13.sp
+                )
+                Text(
+                  text = "-${Formatters.formatCurrency(billState.deductionAmount, billState.currencySymbol)}",
+                  style = LedgerNumeralRegular,
+                  fontWeight = FontWeight.SemiBold,
+                  color = Color(0xFFFCA5A5),
+                  fontSize = 14.sp
+                )
+              }
+            }
+
+            HorizontalDivider(
+              modifier = Modifier.padding(vertical = 12.dp),
+              color = Color.White.copy(alpha = 0.2f)
             )
+
+            Row(
+              modifier = Modifier.fillMaxWidth(),
+              horizontalArrangement = Arrangement.SpaceBetween,
+              verticalAlignment = Alignment.CenterVertically
+            ) {
+              Column {
+                Text(
+                  text = "NET CALCULATED PAYABLE",
+                  style = MaterialTheme.typography.titleSmall,
+                  fontWeight = FontWeight.Black,
+                  color = Color.White,
+                  letterSpacing = 1.sp
+                )
+                Text(
+                  text = "Total across all ${billState.pages.size} pages",
+                  style = MaterialTheme.typography.bodySmall,
+                  color = Color.White.copy(alpha = 0.6f)
+                )
+              }
+
+              Text(
+                text = Formatters.formatCurrency(billState.netTotal, billState.currencySymbol),
+                style = LedgerNumeralLarge,
+                color = Color(0xFF4ADE80),
+                fontSize = 24.sp,
+                fontWeight = FontWeight.Black
+              )
+            }
           }
         }
       }

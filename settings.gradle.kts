@@ -22,6 +22,6 @@ dependencyResolutionManagement {
   }
 }
 
-rootProject.name = "Bill Calculator"
+rootProject.name = "Bill Verifier"
 
 include(":app")

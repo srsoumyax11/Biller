@@ -32,14 +32,14 @@ class MainActivity : ComponentActivity() {
     enableEdgeToEdge()
     setContent {
       MyApplicationTheme {
-        BillCalculatorApp()
+        BillVerifierApp()
       }
     }
   }
 }
 
 @Composable
-fun BillCalculatorApp(
+fun BillVerifierApp(
   viewModel: BillViewModel = viewModel()
 ) {
   val currentScreen by viewModel.currentScreen.collectAsState()
@@ -113,6 +113,7 @@ fun BillCalculatorApp(
             onSavePage = { viewModel.saveCurrentPageAndAddNew() },
             onAddNewPage = { viewModel.addNewPageDirectly() },
             onTogglePageLock = { viewModel.togglePageLock(it) },
+            onToggleShowProductName = { viewModel.toggleProductNameVisibility() },
             onUpdateRow = { rowIndex, name, qty, rate ->
               viewModel.updateRow(
                 pageIndex = activeBillState.activePageIndex,
@@ -122,14 +123,30 @@ fun BillCalculatorApp(
                 rateStr = rate
               )
             },
+            onAddNegativeRow = {
+              viewModel.addNegativeRow(activeBillState.activePageIndex)
+            },
+            onAddPositiveRow = {
+              viewModel.addPositiveRow(activeBillState.activePageIndex)
+            },
             onDeleteRow = { rowIndex ->
               viewModel.deleteRow(pageIndex = activeBillState.activePageIndex, rowIndex = rowIndex)
             },
             onUndoDeleteRow = { viewModel.undoDeleteRow() },
             onClearSnackbar = { viewModel.clearSnackbarMessage() },
-            onUpdateMetadata = { name, phone, invoice, date, note, curr ->
-              viewModel.updateCustomerMetadata(name, phone, invoice, date, note)
+            onUpdateMetadata = { sellerName, phone, invoice, date, note, curr, showProdName, claimedTotalStr, deductionAmountStr ->
+              viewModel.updateSellerMetadata(
+                sellerName = sellerName,
+                customerName = sellerName,
+                phone = phone,
+                invoiceNumber = invoice,
+                dateMillis = date,
+                note = note,
+                claimedTotalStr = claimedTotalStr,
+                deductionAmountStr = deductionAmountStr
+              )
               viewModel.setCurrencySymbol(curr)
+              viewModel.setShowProductName(showProdName)
             },
             onSaveDraft = {
               viewModel.saveBillToDatabase(autoSave = false)

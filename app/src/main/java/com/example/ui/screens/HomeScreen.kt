@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -26,6 +27,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Calculate
+import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.DeleteOutline
 import androidx.compose.material.icons.filled.Edit
@@ -36,6 +38,9 @@ import androidx.compose.material.icons.filled.PictureAsPdf
 import androidx.compose.material.icons.filled.ReceiptLong
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Share
+import androidx.compose.material.icons.filled.Store
+import androidx.compose.material.icons.filled.Verified
+import androidx.compose.material.icons.filled.WarningAmber
 import androidx.compose.material.icons.filled.WifiOff
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -104,16 +109,16 @@ fun HomeScreen(
         icon = {
           Icon(
             imageVector = Icons.Default.Add,
-            contentDescription = "New Bill",
+            contentDescription = "Verify New Bill",
             modifier = Modifier.size(24.dp)
           )
         },
         text = {
           Text(
-            text = "NEW BILL",
+            text = "VERIFY BILL",
             fontWeight = FontWeight.Black,
-            fontSize = 15.sp,
-            letterSpacing = 1.sp
+            fontSize = 14.5.sp,
+            letterSpacing = 0.8.sp
           )
         },
         modifier = Modifier.testTag("new_bill_fab")
@@ -144,7 +149,13 @@ fun HomeScreen(
           OutlinedTextField(
             value = searchQuery,
             onValueChange = onSearchChange,
-            placeholder = { Text("Search bills by customer, phone, invoice #...") },
+            placeholder = {
+              Text(
+                "Search by seller, shop, parchi #...",
+                color = ledgerColors.placeholderColor,
+                fontSize = 14.sp
+              )
+            },
             leadingIcon = {
               Icon(Icons.Default.Search, contentDescription = "Search", tint = ledgerColors.inkNavy)
             },
@@ -158,6 +169,8 @@ fun HomeScreen(
             singleLine = true,
             shape = RoundedCornerShape(12.dp),
             colors = OutlinedTextFieldDefaults.colors(
+              focusedTextColor = ledgerColors.charcoal,
+              unfocusedTextColor = ledgerColors.charcoal,
               focusedContainerColor = ledgerColors.ledgerPaperSurface,
               unfocusedContainerColor = ledgerColors.ledgerPaperSurface,
               focusedBorderColor = ledgerColors.stampAmber,
@@ -180,7 +193,7 @@ fun HomeScreen(
           verticalAlignment = Alignment.CenterVertically
         ) {
           Text(
-            text = if (searchQuery.isEmpty()) "Past Billing Records" else "Search Results (${bills.size})",
+            text = if (searchQuery.isEmpty()) "Verified Bill Records" else "Search Results (${bills.size})",
             style = MaterialTheme.typography.titleMedium,
             fontWeight = FontWeight.Bold,
             color = ledgerColors.inkNavy
@@ -188,7 +201,7 @@ fun HomeScreen(
 
           if (bills.isNotEmpty()) {
             Text(
-              text = "${bills.size} ${if (bills.size == 1) "bill" else "bills"}",
+              text = "${bills.size} ${if (bills.size == 1) "record" else "records"}",
               style = MaterialTheme.typography.bodySmall,
               color = ledgerColors.mutedCharcoal
             )
@@ -233,7 +246,8 @@ private fun HomeHeaderSection(
   Column(
     modifier = Modifier
       .fillMaxWidth()
-      .background(ledgerColors.inkNavy)
+      .background(ledgerColors.headerSurface)
+      .statusBarsPadding()
       .padding(horizontal = 20.dp, vertical = 18.dp)
   ) {
     // Title & Offline Status
@@ -250,7 +264,7 @@ private fun HomeHeaderSection(
         ) {
           Box(contentAlignment = Alignment.Center) {
             Icon(
-              imageVector = Icons.Default.Calculate,
+              imageVector = Icons.Default.Verified,
               contentDescription = null,
               tint = Color.White,
               modifier = Modifier.size(22.dp)
@@ -260,16 +274,16 @@ private fun HomeHeaderSection(
         Spacer(modifier = Modifier.width(10.dp))
         Column {
           Text(
-            text = "BILL CALCULATOR",
+            text = "BILL VERIFIER",
             style = MaterialTheme.typography.titleMedium,
             fontWeight = FontWeight.Black,
-            color = Color.White,
+            color = ledgerColors.headerContent,
             letterSpacing = 1.2.sp
           )
           Text(
-            text = "Digital Billing Book & Ledger",
+            text = "Buyer's Paper Bill & Calculation Audit",
             style = MaterialTheme.typography.labelSmall,
-            color = Color.White.copy(alpha = 0.7f),
+            color = ledgerColors.headerContentMuted,
             fontSize = 11.sp
           )
         }
@@ -292,8 +306,8 @@ private fun HomeHeaderSection(
           )
           Spacer(modifier = Modifier.width(4.dp))
           Text(
-            text = "Offline Mode",
-            color = Color.White,
+            text = "100% Offline",
+            color = ledgerColors.headerContent,
             fontSize = 10.sp,
             fontWeight = FontWeight.SemiBold
           )
@@ -320,10 +334,10 @@ private fun HomeHeaderSection(
       ) {
         Column {
           Text(
-            text = "TOTAL REVENUE",
+            text = "TOTAL VERIFIED AMOUNT",
             style = MaterialTheme.typography.labelSmall,
             fontWeight = FontWeight.Bold,
-            color = Color.White.copy(alpha = 0.7f),
+            color = ledgerColors.headerContentMuted,
             letterSpacing = 0.8.sp
           )
           Text(
@@ -344,16 +358,16 @@ private fun HomeHeaderSection(
 
         Column(horizontalAlignment = Alignment.End) {
           Text(
-            text = "TOTAL BILLS",
+            text = "AUDITED BILLS",
             style = MaterialTheme.typography.labelSmall,
             fontWeight = FontWeight.Bold,
-            color = Color.White.copy(alpha = 0.7f),
+            color = ledgerColors.headerContentMuted,
             letterSpacing = 0.8.sp
           )
           Text(
             text = "$billCount",
             style = LedgerNumeralMedium,
-            color = Color.White,
+            color = ledgerColors.headerContent,
             fontSize = 20.sp,
             fontWeight = FontWeight.Bold
           )
@@ -375,6 +389,8 @@ private fun BillCardItem(
   val ledgerColors = LocalLedgerColors.current
   var menuExpanded by remember { mutableStateOf(false) }
 
+  val sellerNameDisplay = if (bill.sellerName.isNotBlank()) bill.sellerName else if (bill.customerName.isNotBlank()) bill.customerName else "Unknown Seller"
+
   ElevatedCard(
     onClick = onClick,
     modifier = modifier
@@ -392,7 +408,7 @@ private fun BillCardItem(
         .border(1.dp, ledgerColors.ruledLine, RoundedCornerShape(10.dp))
         .padding(14.dp)
     ) {
-      // Top Row: Invoice # & Date & Actions Menu
+      // Top Row: Parchi # & Date & Actions Menu
       Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.SpaceBetween,
@@ -405,7 +421,7 @@ private fun BillCardItem(
             modifier = Modifier.border(0.8.dp, ledgerColors.ruledLineStrong, RoundedCornerShape(4.dp))
           ) {
             Text(
-              text = bill.invoiceNumber.ifBlank { "INV-#${bill.id}" },
+              text = bill.invoiceNumber.ifBlank { "BILL-#${bill.id}" },
               fontFamily = FontFamily.Monospace,
               fontWeight = FontWeight.Bold,
               fontSize = 11.sp,
@@ -422,69 +438,116 @@ private fun BillCardItem(
           )
         }
 
-        Box {
-          IconButton(
-            onClick = { menuExpanded = true },
-            modifier = Modifier.size(28.dp)
-          ) {
-            Icon(
-              imageVector = Icons.Default.MoreVert,
-              contentDescription = "Options",
-              tint = ledgerColors.mutedCharcoal,
-              modifier = Modifier.size(18.dp)
-            )
+        Row(verticalAlignment = Alignment.CenterVertically) {
+          // Audit Discrepancy Status Tag on Card
+          if (bill.claimedTotal > 0.0) {
+            Surface(
+              shape = RoundedCornerShape(6.dp),
+              color = when {
+                bill.isExactMatch -> Color(0xFFE8F5EE)
+                bill.isOvercharged -> Color(0xFFFEE2E2)
+                else -> Color(0xFFF3F4F6)
+              },
+              modifier = Modifier.padding(end = 4.dp)
+            ) {
+              Row(
+                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                verticalAlignment = Alignment.CenterVertically
+              ) {
+                Icon(
+                  imageVector = if (bill.isExactMatch) Icons.Default.CheckCircle else Icons.Default.WarningAmber,
+                  contentDescription = null,
+                  tint = if (bill.isExactMatch) Color(0xFF166534) else Color(0xFFB91C1C),
+                  modifier = Modifier.size(11.dp)
+                )
+                Spacer(modifier = Modifier.width(3.dp))
+                Text(
+                  text = when {
+                    bill.isExactMatch -> "MATCH"
+                    bill.isOvercharged -> "+${Formatters.formatCurrency(bill.discrepancy)}"
+                    else -> "DIFF ${Formatters.formatCurrency(bill.discrepancy)}"
+                  },
+                  fontSize = 10.sp,
+                  fontWeight = FontWeight.Bold,
+                  color = if (bill.isExactMatch) Color(0xFF166534) else Color(0xFFB91C1C)
+                )
+              }
+            }
           }
 
-          DropdownMenu(
-            expanded = menuExpanded,
-            onDismissRequest = { menuExpanded = false }
-          ) {
-            DropdownMenuItem(
-              text = { Text("Open & Edit") },
-              leadingIcon = { Icon(Icons.Default.Edit, contentDescription = null) },
-              onClick = {
-                menuExpanded = false
-                onEdit()
-              }
-            )
-            DropdownMenuItem(
-              text = { Text("Duplicate Bill") },
-              leadingIcon = { Icon(Icons.Default.ReceiptLong, contentDescription = null) },
-              onClick = {
-                menuExpanded = false
-                onDuplicate()
-              }
-            )
-            HorizontalDivider()
-            DropdownMenuItem(
-              text = { Text("Delete Bill", color = ledgerColors.softRed) },
-              leadingIcon = { Icon(Icons.Default.DeleteOutline, contentDescription = null, tint = ledgerColors.softRed) },
-              onClick = {
-                menuExpanded = false
-                onDelete()
-              }
-            )
+          Box {
+            IconButton(
+              onClick = { menuExpanded = true },
+              modifier = Modifier.size(28.dp)
+            ) {
+              Icon(
+                imageVector = Icons.Default.MoreVert,
+                contentDescription = "Options",
+                tint = ledgerColors.mutedCharcoal,
+                modifier = Modifier.size(18.dp)
+              )
+            }
+
+            DropdownMenu(
+              expanded = menuExpanded,
+              onDismissRequest = { menuExpanded = false }
+            ) {
+              DropdownMenuItem(
+                text = { Text("Open & Re-verify") },
+                leadingIcon = { Icon(Icons.Default.Edit, contentDescription = null) },
+                onClick = {
+                  menuExpanded = false
+                  onEdit()
+                }
+              )
+              DropdownMenuItem(
+                text = { Text("Duplicate Bill") },
+                leadingIcon = { Icon(Icons.Default.ReceiptLong, contentDescription = null) },
+                onClick = {
+                  menuExpanded = false
+                  onDuplicate()
+                }
+              )
+              HorizontalDivider()
+              DropdownMenuItem(
+                text = { Text("Delete Record", color = ledgerColors.softRed) },
+                leadingIcon = { Icon(Icons.Default.DeleteOutline, contentDescription = null, tint = ledgerColors.softRed) },
+                onClick = {
+                  menuExpanded = false
+                  onDelete()
+                }
+              )
+            }
           }
         }
       }
 
       Spacer(modifier = Modifier.height(8.dp))
 
-      // Middle Row: Customer Info & Gross Amount
+      // Middle Row: Seller Info & Gross Amount
       Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
       ) {
         Column(modifier = Modifier.weight(1f)) {
-          Text(
-            text = if (bill.customerName.isNotBlank()) bill.customerName else "Walk-in Customer",
-            style = MaterialTheme.typography.titleMedium,
-            fontWeight = FontWeight.Bold,
-            color = ledgerColors.inkNavy,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis
-          )
+          Row(verticalAlignment = Alignment.CenterVertically) {
+            Icon(
+              imageVector = Icons.Default.Store,
+              contentDescription = null,
+              tint = ledgerColors.inkNavy,
+              modifier = Modifier.size(14.dp)
+            )
+            Spacer(modifier = Modifier.width(5.dp))
+            Text(
+              text = sellerNameDisplay,
+              style = MaterialTheme.typography.titleMedium,
+              fontWeight = FontWeight.Bold,
+              color = ledgerColors.inkNavy,
+              maxLines = 1,
+              overflow = TextOverflow.Ellipsis
+            )
+          }
 
           if (bill.phone.isNotBlank()) {
             Row(
@@ -509,13 +572,23 @@ private fun BillCardItem(
         }
 
         // Amount
-        Text(
-          text = Formatters.formatCurrency(bill.grossTotal),
-          style = LedgerNumeralMedium,
-          color = ledgerColors.ledgerGreen,
-          fontSize = 18.sp,
-          fontWeight = FontWeight.Bold
-        )
+        Column(horizontalAlignment = Alignment.End) {
+          Text(
+            text = Formatters.formatCurrency(bill.grossTotal),
+            style = LedgerNumeralMedium,
+            color = ledgerColors.ledgerGreen,
+            fontSize = 18.sp,
+            fontWeight = FontWeight.Bold
+          )
+          if (bill.claimedTotal > 0.0 && !bill.isExactMatch) {
+            Text(
+              text = "Paper: ${Formatters.formatCurrency(bill.claimedTotal)}",
+              style = MaterialTheme.typography.labelSmall,
+              color = ledgerColors.mutedCharcoal,
+              fontSize = 10.5.sp
+            )
+          }
+        }
       }
 
       if (bill.note.isNotBlank()) {
@@ -556,7 +629,7 @@ private fun EmptyBillsState(
     ) {
       Box(contentAlignment = Alignment.Center) {
         Icon(
-          imageVector = if (isSearching) Icons.Default.Search else Icons.Default.MenuBook,
+          imageVector = if (isSearching) Icons.Default.Search else Icons.Default.Verified,
           contentDescription = null,
           tint = ledgerColors.stampAmber,
           modifier = Modifier.size(40.dp)
@@ -567,7 +640,7 @@ private fun EmptyBillsState(
     Spacer(modifier = Modifier.height(16.dp))
 
     Text(
-      text = if (isSearching) "No matching bills found" else "No bills yet",
+      text = if (isSearching) "No matching verified bills found" else "No bills verified yet",
       style = MaterialTheme.typography.titleMedium,
       fontWeight = FontWeight.Bold,
       color = ledgerColors.inkNavy
@@ -576,8 +649,8 @@ private fun EmptyBillsState(
     Spacer(modifier = Modifier.height(6.dp))
 
     Text(
-      text = if (isSearching) "Try searching for a different customer name, phone number, or invoice #"
-      else "Start replacing your paper billing book. Enter items page by page with live totals.",
+      text = if (isSearching) "Try searching for a different seller name, wholesaler, or parchi #"
+      else "Audit handwritten paper bills instantly. Multiply Qty × Rate row by row and compare with the seller's grand total.",
       style = MaterialTheme.typography.bodyMedium,
       color = ledgerColors.mutedCharcoal,
       fontSize = 13.sp,
@@ -598,7 +671,7 @@ private fun EmptyBillsState(
         ) {
           Icon(Icons.Default.Add, contentDescription = null, tint = Color.White, modifier = Modifier.size(18.dp))
           Spacer(modifier = Modifier.width(6.dp))
-          Text("Create First Bill", color = Color.White, fontWeight = FontWeight.Bold)
+          Text("Verify First Bill", color = Color.White, fontWeight = FontWeight.Bold)
         }
       }
     }

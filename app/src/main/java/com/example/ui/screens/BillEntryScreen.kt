@@ -18,9 +18,9 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -28,12 +28,15 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Bookmark
+import androidx.compose.material.icons.filled.Calculate
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.Person
-import androidx.compose.material.icons.filled.Receipt
+import androidx.compose.material.icons.filled.ReceiptLong
+import androidx.compose.material.icons.filled.RemoveCircleOutline
 import androidx.compose.material.icons.filled.Save
-import androidx.compose.material.icons.filled.Undo
+import androidx.compose.material.icons.filled.Store
+import androidx.compose.material.icons.filled.WarningAmber
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
@@ -49,8 +52,6 @@ import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -68,7 +69,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.ui.components.LedgerTable
 import com.example.ui.components.StickyGrossTotalBar
-import com.example.ui.theme.LedgerNumeralMedium
 import com.example.ui.theme.LocalLedgerColors
 import com.example.ui.viewmodel.ActiveBillState
 import com.example.util.Formatters
@@ -84,11 +84,24 @@ fun BillEntryScreen(
   onSavePage: () -> Unit,
   onAddNewPage: () -> Unit,
   onTogglePageLock: (Int) -> Unit,
+  onToggleShowProductName: () -> Unit,
   onUpdateRow: (rowIndex: Int, name: String?, qty: String?, rate: String?) -> Unit,
   onDeleteRow: (rowIndex: Int) -> Unit,
+  onAddNegativeRow: () -> Unit = {},
+  onAddPositiveRow: () -> Unit = {},
   onUndoDeleteRow: () -> Unit,
   onClearSnackbar: () -> Unit,
-  onUpdateMetadata: (name: String, phone: String, invoice: String, dateMillis: Long, note: String, currency: String) -> Unit,
+  onUpdateMetadata: (
+    sellerName: String,
+    phone: String,
+    invoice: String,
+    dateMillis: Long,
+    note: String,
+    currency: String,
+    showProductName: Boolean,
+    claimedTotalStr: String,
+    deductionAmountStr: String
+  ) -> Unit,
   onSaveDraft: () -> Unit,
   onFinishBill: () -> Unit,
   modifier: Modifier = Modifier
@@ -121,12 +134,14 @@ fun BillEntryScreen(
     snackbarHost = { SnackbarHost(snackbarHostState) },
     topBar = {
       Surface(
-        color = ledgerColors.inkNavy,
-        shadowElevation = 4.dp
+        color = ledgerColors.headerSurface,
+        shadowElevation = 4.dp,
+        tonalElevation = 0.dp
       ) {
         Column(
           modifier = Modifier
             .fillMaxWidth()
+            .statusBarsPadding()
             .padding(horizontal = 16.dp, vertical = 12.dp)
         ) {
           // Top navigation & actions row
@@ -142,43 +157,73 @@ fun BillEntryScreen(
               Surface(
                 onClick = onBackClick,
                 shape = CircleShape,
-                color = Color.White.copy(alpha = 0.12f),
+                color = Color.White.copy(alpha = 0.18f),
                 modifier = Modifier
-                  .size(32.dp)
+                  .size(34.dp)
                   .testTag("entry_back_button")
               ) {
                 Box(contentAlignment = Alignment.Center) {
                   Icon(
                     imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                     contentDescription = "Back",
-                    tint = Color.White,
+                    tint = ledgerColors.headerContent,
                     modifier = Modifier.size(18.dp)
                   )
                 }
               }
 
               Text(
-                text = "New Bill",
-                fontWeight = FontWeight.SemiBold,
-                fontSize = 18.sp,
-                color = Color.White,
+                text = "Verify Paper Bill",
+                fontWeight = FontWeight.Bold,
+                fontSize = 17.sp,
+                color = ledgerColors.headerContent,
                 letterSpacing = (-0.3).sp
               )
             }
 
-            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+            Row(
+              horizontalArrangement = Arrangement.spacedBy(6.dp),
+              verticalAlignment = Alignment.CenterVertically
+            ) {
+              // Quick Item Name Toggle Chip
+              Surface(
+                onClick = onToggleShowProductName,
+                shape = RoundedCornerShape(16.dp),
+                color = if (billState.showProductName) Color.White.copy(alpha = 0.18f) else ledgerColors.stampAmber,
+                modifier = Modifier.testTag("toggle_item_name_quick_chip")
+              ) {
+                Row(
+                  modifier = Modifier.padding(horizontal = 9.dp, vertical = 5.dp),
+                  verticalAlignment = Alignment.CenterVertically
+                ) {
+                  Icon(
+                    imageVector = if (billState.showProductName) Icons.Default.ReceiptLong else Icons.Default.Calculate,
+                    contentDescription = null,
+                    tint = Color.White,
+                    modifier = Modifier.size(13.dp)
+                  )
+                  Spacer(modifier = Modifier.width(4.dp))
+                  Text(
+                    text = if (billState.showProductName) "Names: ON" else "Fast Calc",
+                    color = Color.White,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 11.sp
+                  )
+                }
+              }
+
               // Edit Bill Metadata button
               IconButton(
                 onClick = { showMetadataDialog = true },
                 modifier = Modifier
-                  .size(36.dp)
+                  .size(34.dp)
                   .testTag("edit_metadata_button")
               ) {
                 Icon(
                   imageVector = Icons.Default.Edit,
-                  contentDescription = "Customer Details",
-                  tint = Color.White,
-                  modifier = Modifier.size(20.dp)
+                  contentDescription = "Seller Details",
+                  tint = ledgerColors.headerContent,
+                  modifier = Modifier.size(19.dp)
                 )
               }
 
@@ -186,14 +231,14 @@ fun BillEntryScreen(
               IconButton(
                 onClick = onSaveDraft,
                 modifier = Modifier
-                  .size(36.dp)
+                  .size(34.dp)
                   .testTag("save_draft_button")
               ) {
                 Icon(
                   imageVector = Icons.Default.Save,
-                  contentDescription = "Save Draft",
-                  tint = Color.White,
-                  modifier = Modifier.size(20.dp)
+                  contentDescription = "Save Bill",
+                  tint = ledgerColors.headerContent,
+                  modifier = Modifier.size(19.dp)
                 )
               }
             }
@@ -201,7 +246,7 @@ fun BillEntryScreen(
 
           Spacer(modifier = Modifier.height(10.dp))
 
-          // High Density Header Sub-strip: Customer Name & Inv #
+          // Header Sub-strip: Date & Parchi #
           Row(
             modifier = Modifier
               .fillMaxWidth()
@@ -210,42 +255,39 @@ fun BillEntryScreen(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.Bottom
           ) {
-            Column {
+            Column(modifier = Modifier.weight(1f)) {
               Text(
-                text = "CUSTOMER NAME",
+                text = "DATE",
                 style = MaterialTheme.typography.labelSmall,
                 fontSize = 10.sp,
                 fontWeight = FontWeight.Bold,
                 letterSpacing = 1.sp,
-                color = Color.White.copy(alpha = 0.6f)
+                color = ledgerColors.headerContentMuted
               )
-              val customerDisplay = if (billState.customerName.isNotBlank()) billState.customerName else "Walk-in Customer"
               Text(
-                text = customerDisplay,
+                text = Formatters.formatDate(billState.dateMillis),
                 style = MaterialTheme.typography.bodyMedium,
-                fontWeight = FontWeight.Medium,
-                color = Color.White,
-                fontSize = 14.sp,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
+                fontWeight = FontWeight.SemiBold,
+                color = ledgerColors.headerContent,
+                fontSize = 14.sp
               )
             }
 
             Column(horizontalAlignment = Alignment.End) {
               Text(
-                text = "INV #",
+                text = "PARCHI #",
                 style = MaterialTheme.typography.labelSmall,
                 fontSize = 10.sp,
                 fontWeight = FontWeight.Bold,
                 letterSpacing = 1.sp,
-                color = Color.White.copy(alpha = 0.6f)
+                color = ledgerColors.headerContentMuted
               )
               Text(
                 text = billState.invoiceNumber,
                 fontFamily = FontFamily.Monospace,
                 style = MaterialTheme.typography.bodyMedium,
-                fontWeight = FontWeight.Medium,
-                color = Color.White,
+                fontWeight = FontWeight.SemiBold,
+                color = ledgerColors.headerContent,
                 fontSize = 14.sp
               )
             }
@@ -261,6 +303,13 @@ fun BillEntryScreen(
         activePageNumber = activePage.pageNumber,
         isCurrentPageSaved = activePage.isSaved,
         currencySymbol = billState.currencySymbol,
+        deductionAmount = billState.deductionAmount,
+        claimedTotal = billState.claimedTotal,
+        isExactMatch = billState.isExactMatch,
+        isOvercharged = billState.isOvercharged,
+        isUndercharged = billState.isUndercharged,
+        discrepancy = billState.discrepancy,
+        onOpenAuditDialog = { showMetadataDialog = true },
         onSavePage = {
           if (activePage.isSaved) {
             onAddNewPage()
@@ -278,14 +327,6 @@ fun BillEntryScreen(
         .padding(paddingValues),
       contentPadding = PaddingValues(bottom = 16.dp)
     ) {
-      // Customer Info Strip
-      item {
-        CustomerInfoStrip(
-          billState = billState,
-          onEditClick = { showMetadataDialog = true }
-        )
-      }
-
       // Horizontal Page Selector Navigation
       item {
         PageSelectorTabs(
@@ -301,29 +342,37 @@ fun BillEntryScreen(
       item {
         val activePage = billState.activePage
         val isAnimated = pageSavedAnimationIndex == billState.activePageIndex
-        Box(modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)) {
+        Box(modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)) {
           LedgerTable(
             page = activePage,
             pageIndex = billState.activePageIndex,
             currencySymbol = billState.currencySymbol,
             isAnimatedStamp = isAnimated,
+            showProductName = billState.showProductName,
             onRowChange = onUpdateRow,
             onDeleteRow = onDeleteRow,
+            onAddNegativeRow = onAddNegativeRow,
+            onAddPositiveRow = onAddPositiveRow,
             onToggleLock = { onTogglePageLock(billState.activePageIndex) }
           )
         }
       }
 
-      // Helpful Ledger Tip at bottom of scroll
+      // Helpful Verifier Tip at bottom of scroll
       item {
         Text(
-          text = "• Empty row is ready to type • New row generates automatically\n• Saved pages lock amounts and can be reopened anytime",
+          text = if (billState.showProductName) {
+            "• Enter items, Qty & Rate to verify calculation\n• Tap '+ Return / Minus Item (−)' to subtract returned or missing goods\n• Tap 'Names: ON' for quick Qty × Rate mode"
+          } else {
+            "• Fast Qty × Rate Mode: Quickly verify row calculations without typing names\n• Tap '+ Return / Minus Item (−)' to subtract returned items\n• Tap 'Fast Calc' at top to switch back to Item Name mode"
+          },
           style = MaterialTheme.typography.bodySmall,
           color = ledgerColors.mutedCharcoal,
-          fontSize = 11.sp,
+          fontSize = 11.5.sp,
+          fontWeight = FontWeight.Medium,
           modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 20.dp, vertical = 12.dp),
+            .padding(horizontal = 20.dp, vertical = 10.dp),
           textAlign = androidx.compose.ui.text.style.TextAlign.Center
         )
       }
@@ -333,83 +382,20 @@ fun BillEntryScreen(
   // Metadata edit dialog
   if (showMetadataDialog) {
     CustomerMetadataDialog(
-      initialName = billState.customerName,
+      initialName = billState.sellerName.ifBlank { billState.customerName },
       initialPhone = billState.phone,
       initialInvoiceNumber = billState.invoiceNumber,
       initialDateMillis = billState.dateMillis,
       initialNote = billState.note,
       initialCurrency = billState.currencySymbol,
+      initialShowProductName = billState.showProductName,
+      initialClaimedTotalStr = billState.claimedTotalStr,
+      initialDeductionAmountStr = billState.deductionAmountStr,
       onDismiss = { showMetadataDialog = false },
-      onSave = onUpdateMetadata
+      onSave = { name, phone, invoice, dateMillis, note, currency, showProductName, claimedTotalStr, deductionAmountStr ->
+        onUpdateMetadata(name, phone, invoice, dateMillis, note, currency, showProductName, claimedTotalStr, deductionAmountStr)
+      }
     )
-  }
-}
-
-@Composable
-private fun CustomerInfoStrip(
-  billState: ActiveBillState,
-  onEditClick: () -> Unit
-) {
-  val ledgerColors = LocalLedgerColors.current
-
-  Surface(
-    color = ledgerColors.ledgerPaperShaded,
-    modifier = Modifier
-      .fillMaxWidth()
-      .clickable { onEditClick() }
-  ) {
-    Row(
-      modifier = Modifier
-        .fillMaxWidth()
-        .padding(horizontal = 16.dp, vertical = 8.dp),
-      horizontalArrangement = Arrangement.SpaceBetween,
-      verticalAlignment = Alignment.CenterVertically
-    ) {
-      Row(
-        verticalAlignment = Alignment.CenterVertically,
-        modifier = Modifier.weight(1f)
-      ) {
-        Icon(
-          imageVector = Icons.Default.Person,
-          contentDescription = null,
-          tint = ledgerColors.inkNavy,
-          modifier = Modifier.size(16.dp)
-        )
-        Spacer(modifier = Modifier.width(6.dp))
-        val nameText = if (billState.customerName.isNotBlank()) billState.customerName else "Add Customer Name"
-        Text(
-          text = nameText,
-          style = MaterialTheme.typography.bodyMedium,
-          fontWeight = FontWeight.SemiBold,
-          color = if (billState.customerName.isNotBlank()) ledgerColors.charcoal else ledgerColors.stampAmber,
-          maxLines = 1,
-          overflow = TextOverflow.Ellipsis
-        )
-        if (billState.phone.isNotBlank()) {
-          Text(
-            text = " (${billState.phone})",
-            style = MaterialTheme.typography.bodySmall,
-            color = ledgerColors.mutedCharcoal,
-            maxLines = 1
-          )
-        }
-      }
-
-      Row(verticalAlignment = Alignment.CenterVertically) {
-        Text(
-          text = Formatters.formatDate(billState.dateMillis),
-          style = MaterialTheme.typography.labelSmall,
-          color = ledgerColors.mutedCharcoal
-        )
-        Spacer(modifier = Modifier.width(4.dp))
-        Icon(
-          imageVector = Icons.Default.Edit,
-          contentDescription = "Edit",
-          tint = ledgerColors.mutedCharcoal,
-          modifier = Modifier.size(14.dp)
-        )
-      }
-    }
   }
 }
 
@@ -460,7 +446,7 @@ private fun PageSelectorTabs(
               fontFamily = FontFamily.Monospace,
               fontWeight = FontWeight.Bold,
               fontSize = 12.sp,
-              color = if (page.pageTotal > 0) ledgerColors.ledgerGreen else ledgerColors.mutedCharcoal
+              color = if (page.pageTotal < 0) ledgerColors.softRed else if (page.pageTotal > 0) ledgerColors.ledgerGreen else ledgerColors.mutedCharcoal
             )
           }
         },

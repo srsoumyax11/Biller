@@ -18,12 +18,16 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Calculate
 import androidx.compose.material.icons.filled.CalendarToday
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Notes
+import androidx.compose.material.icons.filled.Payment
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Phone
 import androidx.compose.material.icons.filled.Receipt
+import androidx.compose.material.icons.filled.RemoveCircleOutline
+import androidx.compose.material.icons.filled.Store
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.DatePicker
@@ -67,17 +71,33 @@ fun CustomerMetadataDialog(
   initialDateMillis: Long,
   initialNote: String,
   initialCurrency: String,
+  initialShowProductName: Boolean = true,
+  initialClaimedTotalStr: String = "",
+  initialDeductionAmountStr: String = "",
   onDismiss: () -> Unit,
-  onSave: (name: String, phone: String, invoice: String, dateMillis: Long, note: String, currency: String) -> Unit
+  onSave: (
+    name: String,
+    phone: String,
+    invoice: String,
+    dateMillis: Long,
+    note: String,
+    currency: String,
+    showProductName: Boolean,
+    claimedTotalStr: String,
+    deductionAmountStr: String
+  ) -> Unit
 ) {
   val ledgerColors = LocalLedgerColors.current
 
-  var customerName by remember { mutableStateOf(initialName) }
+  var sellerName by remember { mutableStateOf(initialName) }
   var phone by remember { mutableStateOf(initialPhone) }
   var invoiceNumber by remember { mutableStateOf(initialInvoiceNumber) }
   var dateMillis by remember { mutableStateOf(initialDateMillis) }
   var note by remember { mutableStateOf(initialNote) }
   var currency by remember { mutableStateOf(initialCurrency) }
+  var showProductName by remember { mutableStateOf(initialShowProductName) }
+  var claimedTotalStr by remember { mutableStateOf(initialClaimedTotalStr) }
+  var deductionAmountStr by remember { mutableStateOf(initialDeductionAmountStr) }
   var showDatePicker by remember { mutableStateOf(false) }
 
   val currencies = listOf("₹", "$", "€", "£", "AED", "৳")
@@ -106,13 +126,13 @@ fun CustomerMetadataDialog(
         ) {
           Column {
             Text(
-              text = "Bill Details",
-              style = MaterialTheme.typography.titleLarge,
+              text = "Paper Bill & Seller Details",
+              style = MaterialTheme.typography.titleMedium,
               fontWeight = FontWeight.Bold,
               color = ledgerColors.inkNavy
             )
             Text(
-              text = "Customer info & invoice options",
+              text = "Audit handwritten parchi & adjustments",
               style = MaterialTheme.typography.bodySmall,
               color = ledgerColors.mutedCharcoal
             )
@@ -135,50 +155,82 @@ fun CustomerMetadataDialog(
           color = ledgerColors.ruledLine
         )
 
-        // Customer Name
+        // Seller / Shop Name
         OutlinedTextField(
-          value = customerName,
-          onValueChange = { customerName = it },
-          label = { Text("Customer / Shop Name") },
-          placeholder = { Text("e.g. Ramesh Kumar / Sharma Traders") },
+          value = sellerName,
+          onValueChange = { sellerName = it },
+          label = { Text("Seller / Shop / Wholesaler Name") },
+          placeholder = { Text("e.g. Ramesh Kirana / Sharma Wholesale", color = ledgerColors.placeholderColor) },
           leadingIcon = {
-            Icon(Icons.Default.Person, contentDescription = null, tint = ledgerColors.inkNavy)
+            Icon(Icons.Default.Store, contentDescription = null, tint = ledgerColors.inkNavy)
           },
           singleLine = true,
           colors = OutlinedTextFieldDefaults.colors(
+            focusedTextColor = ledgerColors.charcoal,
+            unfocusedTextColor = ledgerColors.charcoal,
             focusedBorderColor = ledgerColors.stampAmber,
             unfocusedBorderColor = ledgerColors.ruledLineStrong,
-            focusedLabelColor = ledgerColors.stampAmber
+            focusedLabelColor = ledgerColors.stampAmber,
+            unfocusedLabelColor = ledgerColors.mutedCharcoal
           ),
           modifier = Modifier
             .fillMaxWidth()
             .testTag("input_customer_name")
         )
 
-        Spacer(modifier = Modifier.height(12.dp))
+        Spacer(modifier = Modifier.height(10.dp))
 
-        // Phone Number
+        // Seller's Claimed Bill Total on Paper (Audit Target)
         OutlinedTextField(
-          value = phone,
-          onValueChange = { phone = it },
-          label = { Text("Customer Phone Number") },
-          placeholder = { Text("e.g. 9876543210") },
+          value = claimedTotalStr,
+          onValueChange = { claimedTotalStr = it },
+          label = { Text("Seller's Written Paper Total ($currency)") },
+          placeholder = { Text("e.g. 55000 (Amount written by seller)", color = ledgerColors.placeholderColor) },
           leadingIcon = {
-            Icon(Icons.Default.Phone, contentDescription = null, tint = ledgerColors.inkNavy)
+            Icon(Icons.Default.Calculate, contentDescription = null, tint = ledgerColors.ledgerGreen)
           },
           singleLine = true,
-          keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
+          keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
           colors = OutlinedTextFieldDefaults.colors(
-            focusedBorderColor = ledgerColors.stampAmber,
+            focusedTextColor = ledgerColors.charcoal,
+            unfocusedTextColor = ledgerColors.charcoal,
+            focusedBorderColor = ledgerColors.ledgerGreen,
             unfocusedBorderColor = ledgerColors.ruledLineStrong,
-            focusedLabelColor = ledgerColors.stampAmber
+            focusedLabelColor = ledgerColors.ledgerGreen,
+            unfocusedLabelColor = ledgerColors.mutedCharcoal
           ),
           modifier = Modifier
             .fillMaxWidth()
-            .testTag("input_customer_phone")
+            .testTag("input_claimed_total")
         )
 
-        Spacer(modifier = Modifier.height(12.dp))
+        Spacer(modifier = Modifier.height(10.dp))
+
+        // Advance Paid / Discount / Deduction Subtraction
+        OutlinedTextField(
+          value = deductionAmountStr,
+          onValueChange = { deductionAmountStr = it },
+          label = { Text("Advance Paid / Discount / Old Adjustment ($currency)") },
+          placeholder = { Text("e.g. 5000 (Subtracted from final bill)", color = ledgerColors.placeholderColor) },
+          leadingIcon = {
+            Icon(Icons.Default.RemoveCircleOutline, contentDescription = null, tint = ledgerColors.softRed)
+          },
+          singleLine = true,
+          keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+          colors = OutlinedTextFieldDefaults.colors(
+            focusedTextColor = ledgerColors.charcoal,
+            unfocusedTextColor = ledgerColors.charcoal,
+            focusedBorderColor = ledgerColors.softRed,
+            unfocusedBorderColor = ledgerColors.ruledLineStrong,
+            focusedLabelColor = ledgerColors.softRed,
+            unfocusedLabelColor = ledgerColors.mutedCharcoal
+          ),
+          modifier = Modifier
+            .fillMaxWidth()
+            .testTag("input_deduction_amount")
+        )
+
+        Spacer(modifier = Modifier.height(10.dp))
 
         // Invoice Number & Date Row
         Row(
@@ -188,15 +240,18 @@ fun CustomerMetadataDialog(
           OutlinedTextField(
             value = invoiceNumber,
             onValueChange = { invoiceNumber = it },
-            label = { Text("Invoice #") },
+            label = { Text("Bill / Parchi #") },
             leadingIcon = {
               Icon(Icons.Default.Receipt, contentDescription = null, tint = ledgerColors.inkNavy)
             },
             singleLine = true,
             colors = OutlinedTextFieldDefaults.colors(
+              focusedTextColor = ledgerColors.charcoal,
+              unfocusedTextColor = ledgerColors.charcoal,
               focusedBorderColor = ledgerColors.stampAmber,
               unfocusedBorderColor = ledgerColors.ruledLineStrong,
-              focusedLabelColor = ledgerColors.stampAmber
+              focusedLabelColor = ledgerColors.stampAmber,
+              unfocusedLabelColor = ledgerColors.mutedCharcoal
             ),
             modifier = Modifier
               .weight(1.2f)
@@ -207,22 +262,25 @@ fun CustomerMetadataDialog(
             value = Formatters.formatDate(dateMillis),
             onValueChange = {},
             readOnly = true,
-            label = { Text("Date") },
+            label = { Text("Bill Date") },
             leadingIcon = {
               Icon(
                 Icons.Default.CalendarToday,
                 contentDescription = null,
                 tint = ledgerColors.inkNavy,
                 modifier = Modifier
-                  .size(20.dp)
+                  .size(18.dp)
                   .clickable { showDatePicker = true }
               )
             },
             singleLine = true,
             colors = OutlinedTextFieldDefaults.colors(
+              focusedTextColor = ledgerColors.charcoal,
+              unfocusedTextColor = ledgerColors.charcoal,
               focusedBorderColor = ledgerColors.stampAmber,
               unfocusedBorderColor = ledgerColors.ruledLineStrong,
-              focusedLabelColor = ledgerColors.stampAmber
+              focusedLabelColor = ledgerColors.stampAmber,
+              unfocusedLabelColor = ledgerColors.mutedCharcoal
             ),
             modifier = Modifier
               .weight(1f)
@@ -231,12 +289,103 @@ fun CustomerMetadataDialog(
           )
         }
 
+        Spacer(modifier = Modifier.height(10.dp))
+
+        // Seller Phone Number
+        OutlinedTextField(
+          value = phone,
+          onValueChange = { phone = it },
+          label = { Text("Seller / Shop Phone (Optional)") },
+          placeholder = { Text("e.g. 9876543210", color = ledgerColors.placeholderColor) },
+          leadingIcon = {
+            Icon(Icons.Default.Phone, contentDescription = null, tint = ledgerColors.inkNavy)
+          },
+          singleLine = true,
+          keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
+          colors = OutlinedTextFieldDefaults.colors(
+            focusedTextColor = ledgerColors.charcoal,
+            unfocusedTextColor = ledgerColors.charcoal,
+            focusedBorderColor = ledgerColors.stampAmber,
+            unfocusedBorderColor = ledgerColors.ruledLineStrong,
+            focusedLabelColor = ledgerColors.stampAmber,
+            unfocusedLabelColor = ledgerColors.mutedCharcoal
+          ),
+          modifier = Modifier
+            .fillMaxWidth()
+            .testTag("input_customer_phone")
+        )
+
+        Spacer(modifier = Modifier.height(10.dp))
+
+        // Note / Purpose Field
+        OutlinedTextField(
+          value = note,
+          onValueChange = { note = it },
+          label = { Text("Purchase Memo / Notes (Optional)") },
+          placeholder = { Text("e.g. Wedding bulk purchase / Grocery stock", color = ledgerColors.placeholderColor) },
+          leadingIcon = {
+            Icon(Icons.Default.Notes, contentDescription = null, tint = ledgerColors.inkNavy)
+          },
+          maxLines = 2,
+          colors = OutlinedTextFieldDefaults.colors(
+            focusedTextColor = ledgerColors.charcoal,
+            unfocusedTextColor = ledgerColors.charcoal,
+            focusedBorderColor = ledgerColors.stampAmber,
+            unfocusedBorderColor = ledgerColors.ruledLineStrong,
+            focusedLabelColor = ledgerColors.stampAmber,
+            unfocusedLabelColor = ledgerColors.mutedCharcoal
+          ),
+          modifier = Modifier
+            .fillMaxWidth()
+            .testTag("input_bill_note")
+        )
+
         Spacer(modifier = Modifier.height(12.dp))
+
+        // Mode Card: Product Name vs Fast Calculation
+        Surface(
+          shape = RoundedCornerShape(8.dp),
+          color = ledgerColors.ledgerPaperShaded,
+          modifier = Modifier
+            .fillMaxWidth()
+            .border(1.dp, ledgerColors.ruledLineStrong, RoundedCornerShape(8.dp))
+            .clickable { showProductName = !showProductName }
+        ) {
+          Row(
+            modifier = Modifier
+              .fillMaxWidth()
+              .padding(10.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+          ) {
+            Column(modifier = Modifier.weight(1f).padding(end = 8.dp)) {
+              Text(
+                text = "Show Item Names",
+                fontWeight = FontWeight.Bold,
+                fontSize = 13.sp,
+                color = ledgerColors.inkNavy
+              )
+              Text(
+                text = if (showProductName) "Enter Item Name + Qty + Rate" else "Fast Mode: Qty × Rate only",
+                fontSize = 11.5.sp,
+                color = ledgerColors.mutedCharcoal
+              )
+            }
+
+            androidx.compose.material3.Switch(
+              checked = showProductName,
+              onCheckedChange = { showProductName = it },
+              modifier = Modifier.testTag("toggle_product_name_switch")
+            )
+          }
+        }
+
+        Spacer(modifier = Modifier.height(10.dp))
 
         // Currency Selector
         Text(
           text = "Currency Symbol",
-          style = MaterialTheme.typography.labelMedium,
+          style = MaterialTheme.typography.labelSmall,
           color = ledgerColors.inkNavy,
           fontWeight = FontWeight.Bold
         )
@@ -255,29 +404,7 @@ fun CustomerMetadataDialog(
           }
         }
 
-        Spacer(modifier = Modifier.height(12.dp))
-
-        // Note Field
-        OutlinedTextField(
-          value = note,
-          onValueChange = { note = it },
-          label = { Text("Optional Note / Terms") },
-          placeholder = { Text("e.g. Paid in full / Deliver by Friday") },
-          leadingIcon = {
-            Icon(Icons.Default.Notes, contentDescription = null, tint = ledgerColors.inkNavy)
-          },
-          maxLines = 3,
-          colors = OutlinedTextFieldDefaults.colors(
-            focusedBorderColor = ledgerColors.stampAmber,
-            unfocusedBorderColor = ledgerColors.ruledLineStrong,
-            focusedLabelColor = ledgerColors.stampAmber
-          ),
-          modifier = Modifier
-            .fillMaxWidth()
-            .testTag("input_bill_note")
-        )
-
-        Spacer(modifier = Modifier.height(20.dp))
+        Spacer(modifier = Modifier.height(18.dp))
 
         // Actions
         Row(
@@ -296,7 +423,7 @@ fun CustomerMetadataDialog(
 
           Button(
             onClick = {
-              onSave(customerName, phone, invoiceNumber, dateMillis, note, currency)
+              onSave(sellerName, phone, invoiceNumber, dateMillis, note, currency, showProductName, claimedTotalStr, deductionAmountStr)
               onDismiss()
             },
             colors = ButtonDefaults.buttonColors(
