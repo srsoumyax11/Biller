@@ -1,4 +1,4 @@
-name: Build Android Debug APK
+name: Build Android APK
 
 on:
   push:
@@ -14,7 +14,7 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-    
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -28,25 +28,19 @@ jobs:
 
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
-        with:
-          api-level: 36
-          target: default
-          arch: x86_64
-          cache: true
 
-      - name: Create .env file from example
+      - name: Create .env file
         run: cp .env.example .env
 
-      - name: Build debug APK
-        run: |
-          gradle assembleDebug \
-            --stacktrace \
-            -Dorg.gradle.jvmargs="-Djava.awt.headless=true -XX:+UnlockExperimentalVMOptions -XX:G1NewCollectionPercentage=20 -XX:G1MaxNewGenerationPercent=30 -XX:G1ReservePercent=20" \
-            -Pkotlin.compiler.execution.strategy=in-process
+      - name: Make Gradle executable
+        run: chmod +x ./gradlew
+
+      - name: Build Debug APK
+        run: ./gradlew assembleDebug --stacktrace --no-daemon
         env:
           GRADLE_OPTS: "-Djava.awt.headless=true -Xmx3g"
 
-      - name: Upload debug APK
+      - name: Upload Debug APK
         uses: actions/upload-artifact@v4
         if: success()
         with:
@@ -64,7 +58,7 @@ jobs:
 
   test:
     runs-on: ubuntu-latest
-    
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -76,15 +70,14 @@ jobs:
           distribution: 'temurin'
           cache: gradle
 
-      - name: Create .env file from example
+      - name: Create .env file
         run: cp .env.example .env
 
+      - name: Make Gradle executable
+        run: chmod +x ./gradlew
+
       - name: Run unit tests
-        run: |
-          gradle test \
-            --stacktrace \
-            -Dorg.gradle.jvmargs="-Djava.awt.headless=true -XX:+UnlockExperimentalVMOptions -XX:G1NewCollectionPercentage=20 -XX:G1MaxNewGenerationPercent=30 -XX:G1ReservePercent=20" \
-            -Pkotlin.compiler.execution.strategy=in-process
+        run: ./gradlew test --stacktrace --no-daemon
         env:
           GRADLE_OPTS: "-Djava.awt.headless=true -Xmx3g"
 
