@@ -38,9 +38,13 @@ jobs:
         run: cp .env.example .env
 
       - name: Build debug APK
-        run: gradle assembleDebug --stacktrace -Dorg.gradle.jvmargs="-Djava.awt.headless=true"
+        run: |
+          gradle assembleDebug \
+            --stacktrace \
+            -Dorg.gradle.jvmargs="-Djava.awt.headless=true -XX:+UnlockExperimentalVMOptions -XX:G1NewCollectionPercentage=20 -XX:G1MaxNewGenerationPercent=30 -XX:G1ReservePercent=20" \
+            -Pkotlin.compiler.execution.strategy=in-process
         env:
-          GRADLE_OPTS: "-Djava.awt.headless=true"
+          GRADLE_OPTS: "-Djava.awt.headless=true -Xmx3g"
 
       - name: Upload debug APK
         uses: actions/upload-artifact@v4
@@ -76,9 +80,13 @@ jobs:
         run: cp .env.example .env
 
       - name: Run unit tests
-        run: gradle test --stacktrace -Dorg.gradle.jvmargs="-Djava.awt.headless=true"
+        run: |
+          gradle test \
+            --stacktrace \
+            -Dorg.gradle.jvmargs="-Djava.awt.headless=true -XX:+UnlockExperimentalVMOptions -XX:G1NewCollectionPercentage=20 -XX:G1MaxNewGenerationPercent=30 -XX:G1ReservePercent=20" \
+            -Pkotlin.compiler.execution.strategy=in-process
         env:
-          GRADLE_OPTS: "-Djava.awt.headless=true"
+          GRADLE_OPTS: "-Djava.awt.headless=true -Xmx3g"
 
       - name: Upload test reports
         uses: actions/upload-artifact@v4
